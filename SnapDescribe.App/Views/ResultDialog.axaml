@@ -1,0 +1,133 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:md="clr-namespace:Markdown.Avalonia;assembly=Markdown.Avalonia"
+        xmlns:models="clr-namespace:SnapDescribe.App.Models"
+        x:Class="SnapDescribe.App.Views.ResultDialog"
+        x:CompileBindings="False"
+        Title="结果预览"
+        Width="900"
+        Height="640"
+        MinWidth="820"
+        MinHeight="560"
+        CanResize="True"
+        WindowStartupLocation="CenterOwner">
+    <Border Background="#F5F7FD" Padding="18">
+        <Grid ColumnDefinitions="300,*" ColumnSpacing="16">
+            <StackPanel Orientation="Vertical" Spacing="12">
+                <Border Background="White"
+                        CornerRadius="12"
+                        Padding="16">
+                    <StackPanel Spacing="8">
+                        <Image x:Name="PreviewImage"
+                               Stretch="Uniform"
+                               Height="200" />
+                        <TextBlock x:Name="TitleText"
+                                   FontSize="18"
+                                   FontWeight="SemiBold"
+                                   Foreground="#1F2433"
+                                   Text="截图结果" />
+                        <TextBlock x:Name="SubTitleText"
+                                   FontSize="12"
+                                   Foreground="#7A8199"
+                                   Text="生成于" />
+                        <StackPanel Spacing="6">
+                            <TextBlock Text="使用 Prompt"
+                                       FontSize="12"
+                                       Foreground="#7A8199" />
+                            <TextBlock Text="{Binding Prompt}"
+                                       FontSize="13"
+                                       Foreground="#2E3554"
+                                       TextWrapping="Wrap" />
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+
+            <Grid Grid.Column="1"
+                  Background="White">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <Grid Grid.Row="0"
+                      Margin="0,0,0,1">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+                    <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+                        <ItemsControl ItemsSource="{Binding Conversation}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <StackPanel Spacing="10" Margin="18" />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="models:ChatMessage">
+                                    <Border CornerRadius="10"
+                                            Padding="12"
+                                            Background="{Binding Role, Converter={x:Static models:ChatMessageRoleToColorConverter.Instance}}"
+                                            HorizontalAlignment="{Binding Role, Converter={x:Static models:ChatMessageRoleToAlignmentConverter.Instance}}">
+                                        <StackPanel Spacing="4">
+                                            <TextBlock Text="{Binding DisplayRole}"
+                                                       FontSize="12"
+                                                       Foreground="#7A8199" />
+                                            <TextBox Text="{Binding Content}"
+                                                     FontSize="14"
+                                                     Foreground="#1F2433"
+                                                     TextWrapping="Wrap"
+                                                     IsReadOnly="True"
+                                                     Background="Transparent"
+                                                     BorderThickness="0"
+                                                     Padding="0"
+                                                     MinHeight="20"
+                                                     MaxWidth="520"
+                                                     IsTabStop="False" />
+                                        </StackPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+
+                    <Border x:Name="LoadingPanel"
+                            HorizontalAlignment="Stretch"
+                            VerticalAlignment="Top"
+                            Margin="0"
+                            Padding="12,10"
+                            Background="#EEF2FF"
+                            CornerRadius="0,0,12,12"
+                            IsVisible="False">
+                        <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Center">
+                            <ProgressBar IsIndeterminate="True" Width="140" Height="6" />
+                            <TextBlock Text="模型正在生成回复..."
+                                       FontSize="12"
+                                       Foreground="#394264"
+                                       VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Border>
+                </Grid>
+
+                <Grid Grid.Row="1" ColumnDefinitions="*,Auto" Background="#F8FAFF" Margin="0" Height="90">
+                    <TextBox x:Name="ChatInput"
+                             Grid.Column="0"
+                             Watermark="继续提问或让模型执行下一步..."
+                             AcceptsReturn="True"
+                             Margin="14,14,10,14"
+                             TextWrapping="Wrap"
+                             Padding="10"
+                             MaxLength="800" />
+                    <Button x:Name="SendButton"
+                            Grid.Column="1"
+                            Content="发送"
+                            Padding="18,12"
+                            Width="110"
+                            Margin="0,14,14,14" />
+                </Grid>
+            </Grid>
+        </Grid>
+    </Border>
+</Window>

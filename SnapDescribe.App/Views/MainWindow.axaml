@@ -1,0 +1,248 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:md="clr-namespace:Markdown.Avalonia;assembly=Markdown.Avalonia"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d"
+        x:Class="SnapDescribe.App.Views.MainWindow"
+        x:CompileBindings="False"
+        Title="SnapDescribe"
+        Width="980"
+        Height="680"
+        MinWidth="900"
+        MinHeight="600"
+        WindowStartupLocation="CenterScreen">
+    <Border Background="#F4F6FB">
+        <Grid Margin="18">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+            <TextBlock Grid.Row="0"
+                       Text="SnapDescribe 截图助手"
+                       FontSize="22"
+                       FontWeight="SemiBold"
+                       Margin="4,0,0,16" />
+
+            <TabControl Grid.Row="1"
+                        Background="Transparent"
+                        BorderBrush="Transparent"
+                        Padding="0">
+                <TabItem Header="工作台">
+                    <Grid RowDefinitions="Auto,*"
+                          RowSpacing="14">
+                        <Border Padding="18"
+                                Background="White"
+                                CornerRadius="12"
+                                Classes="card">
+                            <Grid ColumnDefinitions="Auto,*"
+                                  ColumnSpacing="16">
+                                <Button Grid.Column="0"
+                                        Content="捕捉屏幕"
+                                        Command="{Binding CaptureCommand}"
+                                        Padding="18,12"
+                                        HorizontalAlignment="Left"/>
+
+                                <StackPanel Grid.Column="1" Orientation="Vertical" Spacing="4">
+                                    <TextBlock Text="{Binding StatusMessage}"
+                                               FontSize="14"
+                                               FontWeight="Medium"
+                                               Foreground="#394264" />
+                                    <TextBlock Text="提示：单击高亮窗口即可截图，拖拽选择自定义区域，按 Esc 取消"
+                                               FontSize="12"
+                                           Foreground="#7A8199" />
+                                </StackPanel>
+
+                                <Border Grid.Column="1"
+                                        Background="#F4F6FB"
+                                        CornerRadius="8"
+                                        Padding="10,6"
+                                        HorizontalAlignment="Right">
+                                    <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                                        <TextBlock Text="当前快捷键"
+                                                   FontSize="12"
+                                                   Foreground="#7A8199" />
+                                        <TextBlock Text="{Binding Settings.CaptureHotkey.Shortcut}"
+                                                   FontSize="12"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="#394264" />
+                                    </StackPanel>
+                                </Border>
+                            </Grid>
+                        </Border>
+
+                        <Border Grid.Row="1"
+                                Background="White"
+                                CornerRadius="12"
+                                Classes="card">
+                            <Grid ColumnDefinitions="280,*"
+                                  Margin="16"
+                                  ColumnSpacing="16">
+                                <StackPanel Grid.Column="0" Spacing="8">
+                                    <TextBlock Text="历史记录"
+                                               FontWeight="SemiBold"
+                                               FontSize="16"
+                                               Foreground="#1F2433" />
+                                    <TextBlock Text="最近生成的截图与描述"
+                                               FontSize="12"
+                                               Foreground="#7A8199" />
+                                    <ScrollViewer Margin="0,12,0,0"
+                                                  HorizontalScrollBarVisibility="Disabled">
+                                        <ListBox x:Name="HistoryList"
+                                                 ItemsSource="{Binding History}"
+                                                 SelectedItem="{Binding SelectedRecord}"
+                                                 BorderBrush="Transparent"
+                                                 Background="Transparent">
+                                            <ListBox.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Border Padding="10"
+                                                            Margin="0,0,0,10"
+                                                            Background="#F8FAFF"
+                                                            CornerRadius="8">
+                                                        <StackPanel>
+                                                            <TextBlock Text="{Binding DisplayTitle}"
+                                                                       FontWeight="SemiBold"
+                                                                       Foreground="#2E3554" />
+                                                            <TextBlock Text="{Binding Prompt}"
+                                                                       FontSize="12"
+                                                                       Foreground="#7A8199"
+                                                                       TextWrapping="Wrap"
+                                                                       Margin="0,4,0,0" />
+                                                        </StackPanel>
+                                                    </Border>
+                                                </DataTemplate>
+                                            </ListBox.ItemTemplate>
+                                        </ListBox>
+                                    </ScrollViewer>
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="1" Spacing="12">
+                                    <TextBlock Text="{Binding SelectedRecord.DisplayTitle}"
+                                               FontWeight="SemiBold"
+                                               FontSize="16"
+                                               Foreground="#1F2433" />
+                                    <Border Background="#F0F4FF"
+                                            CornerRadius="10"
+                                            Padding="12"
+                                            Height="320">
+                                        <Image Source="{Binding PreviewImage}"
+                                               Stretch="Uniform"
+                                               HorizontalAlignment="Center"
+                                               VerticalAlignment="Center" />
+                                    </Border>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+                    </Grid>
+                </TabItem>
+
+                <TabItem Header="设置">
+                    <ScrollViewer Margin="0,6,0,0">
+                        <StackPanel Spacing="16">
+                            <Border Background="White"
+                                    CornerRadius="12"
+                                    Padding="20"
+                                    Classes="card">
+                                <StackPanel Spacing="14">
+                                    <TextBlock Text="接口配置"
+                                               FontSize="18"
+                                               FontWeight="SemiBold"
+                                               Foreground="#1F2433" />
+                                    <Grid ColumnDefinitions="160,*"
+                                          RowDefinitions="Auto,Auto,Auto"
+                                          RowSpacing="12"
+                                          ColumnSpacing="12">
+                                        <TextBlock Grid.Row="0" Grid.Column="0" VerticalAlignment="Center" Text="Base URL" />
+                                        <TextBox x:Name="BaseUrlTextBox"
+                                                 Grid.Row="0"
+                                                 Grid.Column="1"
+                                                 Text="{Binding Settings.BaseUrl, UpdateSourceTrigger=PropertyChanged}"
+                                                 Watermark="https://open.bigmodel.cn/api/paas/v4/" />
+
+                                        <TextBlock Grid.Row="1" Grid.Column="0" VerticalAlignment="Center" Text="模型名称" />
+                                        <TextBox x:Name="ModelTextBox"
+                                                 Grid.Row="1"
+                                                 Grid.Column="1"
+                                                 Text="{Binding Settings.Model, UpdateSourceTrigger=PropertyChanged}" />
+
+                                        <TextBlock Grid.Row="2" Grid.Column="0" VerticalAlignment="Center" Text="API Key" />
+                                        <TextBox x:Name="ApiKeyTextBox"
+                                                 Grid.Row="2"
+                                                 Grid.Column="1"
+                                                 Text="{Binding Settings.ApiKey, UpdateSourceTrigger=PropertyChanged}" />
+                                    </Grid>
+                                </StackPanel>
+                            </Border>
+
+                            <Border Background="White"
+                                    CornerRadius="12"
+                                    Padding="20"
+                                    Classes="card">
+                                <StackPanel Spacing="14">
+                                    <TextBlock Text="捕捉与保存"
+                                               FontSize="18"
+                                               FontWeight="SemiBold"
+                                               Foreground="#1F2433" />
+                                    <Grid ColumnDefinitions="160,*"
+                                          RowDefinitions="Auto,Auto,Auto,Auto,Auto"
+                                          RowSpacing="12"
+                                          ColumnSpacing="12">
+                                        <TextBlock Grid.Row="0" Grid.Column="0" VerticalAlignment="Center" Text="固定 Prompt" />
+                                        <TextBox x:Name="DefaultPromptTextBox"
+                                                 Grid.Row="0"
+                                                 Grid.Column="1"
+                                                 TextWrapping="Wrap"
+                                                 AcceptsReturn="True"
+                                                 Height="68"
+                                                 Text="{Binding Settings.DefaultPrompt, UpdateSourceTrigger=PropertyChanged}" />
+
+                                        <TextBlock Grid.Row="1" Grid.Column="0" VerticalAlignment="Center" Text="捕捉热键" />
+                                        <TextBox x:Name="HotkeyTextBox"
+                                                 Grid.Row="1"
+                                                 Grid.Column="1"
+                                                 IsReadOnly="True"
+                                                 Text="{Binding Settings.CaptureHotkey.Shortcut}" />
+
+                                        <TextBlock Grid.Row="2" Grid.Column="0" VerticalAlignment="Center" Text="输出目录" />
+                                        <StackPanel Grid.Row="2"
+                                                    Grid.Column="1"
+                                                    Orientation="Horizontal"
+                                                    Spacing="8">
+                                            <TextBox x:Name="OutputDirectoryTextBox"
+                                                     Width="360"
+                                                     Text="{Binding Settings.OutputDirectory, UpdateSourceTrigger=PropertyChanged}" />
+                                            <Button x:Name="BrowseFolderButton"
+                                                    Content="浏览..." />
+                                        </StackPanel>
+
+                                        <TextBlock Grid.Row="3" Grid.Column="0" VerticalAlignment="Center" Text="保留条数" />
+                                        <StackPanel Grid.Row="3"
+                                                    Grid.Column="1"
+                                                    Orientation="Horizontal"
+                                                    Spacing="8">
+                                            <TextBox x:Name="HistoryLimitTextBox"
+                                                     Width="80"
+                                                     Text="{Binding Settings.HistoryLimit, UpdateSourceTrigger=PropertyChanged}" />
+                                            <Button Content="刷新目录"
+                                                    Command="{Binding RefreshOutputFolderCommand}" />
+                                        </StackPanel>
+
+                                        <Button Grid.Row="4"
+                                                Grid.Column="1"
+                                                Content="保存设置"
+                                                Command="{Binding SaveSettingsCommand}"
+                                                Background="#4C6EF5"
+                                                Foreground="White"
+                                                Padding="18,10"
+                                                FontWeight="SemiBold"
+                                                HorizontalAlignment="Left" />
+                                    </Grid>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+                    </ScrollViewer>
+                </TabItem>
+            </TabControl>
+        </Grid>
+    </Border>
+</Window>
