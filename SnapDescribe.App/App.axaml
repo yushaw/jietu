@@ -6,5 +6,48 @@
 
     <Application.Styles>
         <FluentTheme />
+        <Style Selector="Button">
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Padding" Value="10,8" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Background" Value="#F1F4FB" />
+            <Setter Property="Foreground" Value="#1F2433" />
+            <Setter Property="FontSize" Value="13" />
+        </Style>
+        <Style Selector="Button:pointerover">
+            <Setter Property="Background" Value="#E2E8F6" />
+        </Style>
+        <Style Selector="Button:pressed">
+            <Setter Property="Background" Value="#CBD5F0" />
+        </Style>
+        <Style Selector="Button.primary">
+            <Setter Property="Background" Value="#3B82F6" />
+            <Setter Property="Foreground" Value="White" />
+        </Style>
+        <Style Selector="Button.primary:pointerover">
+            <Setter Property="Background" Value="#2563EB" />
+        </Style>
+        <Style Selector="Button.primary:pressed">
+            <Setter Property="Background" Value="#1D4ED8" />
+        </Style>
+        <Style Selector="Button.outline">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="#D0D7E5" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Foreground" Value="#1F2433" />
+            <Setter Property="Padding" Value="8,6" />
+            <Setter Property="FontSize" Value="12" />
+        </Style>
+        <Style Selector="Button.outline:pointerover">
+            <Setter Property="Background" Value="#EFF3FB" />
+        </Style>
     </Application.Styles>
+
+    <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceInclude Source="avares://SnapDescribe/Resources/StringResources.en-US.axaml" />
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </Application.Resources>
 </Application>

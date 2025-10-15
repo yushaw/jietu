@@ -9,6 +9,8 @@ using Avalonia.Platform.Storage;
 using Avalonia.Media.Imaging;
 using SnapDescribe.App.Models;
 using SnapDescribe.App.ViewModels;
+using SnapDescribe.App.Services;
+using System.Linq;
 
 namespace SnapDescribe.App.Views;
 
@@ -28,7 +30,7 @@ public partial class MainWindow : Window
 
         var services = App.Services;
         var viewModel = services.GetService(typeof(MainWindowViewModel)) as MainWindowViewModel
-                         ?? throw new InvalidOperationException("MainWindowViewModel 未注册。");
+                         ?? throw new InvalidOperationException("MainWindowViewModel is not registered.");
         AttachViewModel(viewModel);
     }
 
@@ -81,6 +83,12 @@ public partial class MainWindow : Window
             historyList.DoubleTapped += OnHistoryDoubleTapped;
         }
 
+        if (this.FindControl<ComboBox>("LanguageComboBox") is { } languageCombo)
+        {
+            SelectLanguageItem(languageCombo, _viewModel.Settings.Language);
+            languageCombo.SelectionChanged += OnLanguageSelectionChanged;
+        }
+
         _viewModel.CaptureCompleted += OnCaptureCompleted;
         Opened += HandleOpened;
         Closed += HandleClosed;
@@ -95,14 +103,14 @@ public partial class MainWindow : Window
 
         if (!StorageProvider.CanPickFolder)
         {
-            _viewModel.StatusMessage = "当前平台不支持选择文件夹。";
+            _viewModel.SetStatusMessage("Status.FolderPickerNotSupported");
             return;
         }
 
         var folders = await StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
         {
             AllowMultiple = false,
-            Title = "选择截图保存位置"
+            Title = LocalizationService.Instance.GetString("Dialog.SelectOutputFolder")
         });
 
         var folder = folders?.Count > 0 ? folders[0] : null;
@@ -114,13 +122,13 @@ public partial class MainWindow : Window
         var path = folder.Path.LocalPath ?? folder.Path.ToString();
         if (string.IsNullOrWhiteSpace(path))
         {
-            _viewModel.StatusMessage = "未能读取所选路径。";
+            _viewModel.SetStatusMessage("Status.ReadSelectedPathFailed");
             return;
         }
 
         _viewModel.Settings.OutputDirectory = path;
         _viewModel.RefreshOutputFolderCommand.Execute(null);
-        _viewModel.StatusMessage = "输出目录已更新。";
+        _viewModel.SetStatusMessage("Status.OutputDirectoryUpdated");
     }
 
     private void HandleOpened(object? sender, EventArgs e)
@@ -147,6 +155,11 @@ public partial class MainWindow : Window
         if (hotkeyBox is not null)
         {
             hotkeyBox.RemoveHandler(KeyDownEvent, OnHotkeyBoxKeyDown);
+        }
+
+        if (this.FindControl<ComboBox>("LanguageComboBox") is { } languageCombo)
+        {
+            languageCombo.SelectionChanged -= OnLanguageSelectionChanged;
         }
 
         UnregisterSettingsFieldHandlers();
@@ -335,6 +348,35 @@ public partial class MainWindow : Window
     private void OnSettingsFieldLostFocus(object? sender, RoutedEventArgs e)
     {
         _viewModel?.SaveSettingsCommand.Execute(null);
+    }
+
+    private void OnLanguageSelectionChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        if (_viewModel is null || sender is not ComboBox combo)
+        {
+            return;
+        }
+
+        if (combo.SelectedItem is not ComboBoxItem item || item.Tag is not string language)
+        {
+            return;
+        }
+
+        _viewModel.ChangeLanguage(language);
+        SelectLanguageItem(combo, language);
+    }
+
+
+    private static void SelectLanguageItem(ComboBox combo, string language)
+    {
+        var match = combo.Items
+            .OfType<ComboBoxItem>()
+            .FirstOrDefault(item => item.Tag is string tag && string.Equals(tag, language, StringComparison.OrdinalIgnoreCase));
+
+        if (match is not null)
+        {
+            combo.SelectedItem = match;
+        }
     }
 
     private async Task CopyImageToClipboardAsync(CaptureRecord record)

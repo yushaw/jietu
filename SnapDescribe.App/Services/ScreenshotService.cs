@@ -28,7 +28,9 @@ public class ScreenshotService : IScreenshotService
     {
         "snapdescribe.exe",
         "snapdescribe.app.exe",
-        "cgedata.exe"
+        "cgedata.exe",
+        "hpaudiocontrol.exe",
+        "hpaudiocontrol"
     };
 
     public async Task<ScreenshotResult?> CaptureInteractiveAsync()
@@ -73,6 +75,11 @@ public class ScreenshotService : IScreenshotService
             if (selection.IsWindowSelection && selection.WindowHandle != IntPtr.Zero)
             {
                 capturedBitmap = CaptureWindow(selection.WindowHandle, selection.ScreenRect);
+                if (capturedBitmap is not null && IsMostlyBlack(capturedBitmap))
+                {
+                    capturedBitmap.Dispose();
+                    capturedBitmap = null;
+                }
             }
 
             var finalBitmap = capturedBitmap ?? CropFromFull(fullBitmap, selection.ScreenRect, virtualLeft, virtualTop);
@@ -81,7 +88,7 @@ public class ScreenshotService : IScreenshotService
         }
         catch (Exception ex)
         {
-            DiagnosticLogger.Log("交互式截图失败", ex);
+            DiagnosticLogger.Log("Interactive capture failed", ex);
             throw;
         }
     }
@@ -252,7 +259,7 @@ public class ScreenshotService : IScreenshotService
 
         foreach (var ignored in IgnoredProcessNames)
         {
-            if (string.Equals(processName, ignored, StringComparison.OrdinalIgnoreCase))
+            if (processName.Contains(ignored, StringComparison.OrdinalIgnoreCase))
             {
                 return true;
             }
@@ -354,6 +361,70 @@ public class ScreenshotService : IScreenshotService
         return crop;
     }
 
+    private static bool IsMostlyBlack(DrawingBitmap bitmap)
+    {
+        try
+        {
+            var sampleRect = new DrawingRectangle(
+                Math.Max(0, bitmap.Width / 2 - 20),
+                Math.Max(0, bitmap.Height / 2 - 20),
+                Math.Min(bitmap.Width, 40),
+                Math.Min(bitmap.Height, 40));
+
+            if (sampleRect.Width <= 0 || sampleRect.Height <= 0)
+            {
+                return false;
+            }
+
+            using var clone = bitmap.Clone(sampleRect, bitmap.PixelFormat);
+            var data = clone.LockBits(new DrawingRectangle(0, 0, clone.Width, clone.Height),
+                ImageLockMode.ReadOnly, clone.PixelFormat);
+
+            try
+            {
+                var stride = Math.Abs(data.Stride);
+                var bytes = stride * data.Height;
+                var buffer = new byte[bytes];
+                Marshal.Copy(data.Scan0, buffer, 0, bytes);
+
+                var bpp = System.Drawing.Image.GetPixelFormatSize(data.PixelFormat) / 8;
+                if (bpp <= 0)
+                {
+                    return false;
+                }
+
+                var darkPixels = 0;
+                var totalPixels = data.Height * data.Width;
+
+                for (var y = 0; y < data.Height; y++)
+                {
+                    for (var x = 0; x < data.Width; x++)
+                    {
+                        var offset = y * stride + x * bpp;
+                        var b = buffer[offset];
+                        var g = buffer[offset + 1];
+                        var r = buffer[offset + 2];
+                        var luminance = (0.299 * r) + (0.587 * g) + (0.114 * b);
+                        if (luminance < 8)
+                        {
+                            darkPixels++;
+                        }
+                    }
+                }
+
+                return darkPixels / (double)totalPixels > 0.95;
+            }
+            finally
+            {
+                clone.UnlockBits(data);
+            }
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
     private static DrawingBitmap? CaptureWindow(IntPtr hwnd, PixelRect screenRect)
     {
         try
@@ -407,7 +478,7 @@ public class ScreenshotService : IScreenshotService
         }
         catch (Exception ex)
         {
-            DiagnosticLogger.Log("窗口截图失败，回退到裁剪整屏", ex);
+            DiagnosticLogger.Log("Window capture failed, falling back to screen crop", ex);
             return null;
         }
     }
@@ -416,7 +487,7 @@ public class ScreenshotService : IScreenshotService
     {
         if (!OperatingSystem.IsWindows())
         {
-            throw new PlatformNotSupportedException("截图功能仅支持在 Windows 上运行。");
+            throw new PlatformNotSupportedException("Screenshot capture is only supported on Windows.");
         }
     }
 

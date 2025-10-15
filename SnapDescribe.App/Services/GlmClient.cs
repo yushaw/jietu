@@ -38,23 +38,23 @@ public class GlmClient : IAiClient
     {
         if (pngBytes is null || pngBytes.Length == 0)
         {
-            throw new ArgumentException("图片数据为空", nameof(pngBytes));
+            throw new ArgumentException("Image data cannot be empty.", nameof(pngBytes));
         }
 
         if (string.IsNullOrWhiteSpace(settings.ApiKey))
         {
-            throw new InvalidOperationException("请先在设置中配置 API Key。");
+            throw new InvalidOperationException("Configure the API Key in Settings first.");
         }
 
         if (conversation is null || conversation.Count == 0)
         {
-            throw new ArgumentException("会话消息不能为空", nameof(conversation));
+            throw new ArgumentException("Conversation messages cannot be empty.", nameof(conversation));
         }
 
         var request = BuildRequest(settings, pngBytes, conversation);
         var json = JsonSerializer.Serialize(request, JsonOptions);
 
-        var baseUrl = settings.BaseUrl?.TrimEnd('/') ?? throw new InvalidOperationException("BaseUrl 未配置");
+        var baseUrl = settings.BaseUrl?.TrimEnd('/') ?? throw new InvalidOperationException("BaseUrl is not configured.");
         var uri = new Uri($"{baseUrl}/chat/completions");
 
         using var message = new HttpRequestMessage(HttpMethod.Post, uri)
@@ -68,16 +68,16 @@ public class GlmClient : IAiClient
 
         if (!response.IsSuccessStatusCode)
         {
-            DiagnosticLogger.Log($"模型调用返回错误状态码 {response.StatusCode}", new InvalidOperationException(responseContent));
-            throw new InvalidOperationException($"模型调用失败：{response.StatusCode} {responseContent}");
+            DiagnosticLogger.Log($"Model request returned status code {response.StatusCode}", new InvalidOperationException(responseContent));
+            throw new InvalidOperationException($"Model request failed: {response.StatusCode} {responseContent}");
         }
 
         var payload = JsonSerializer.Deserialize<GlmResponse>(responseContent, JsonOptions);
         var content = payload?.Choices?.FirstOrDefault()?.Message?.Content;
         if (string.IsNullOrWhiteSpace(content))
         {
-            DiagnosticLogger.Log("模型返回内容为空", new InvalidOperationException(responseContent));
-            throw new InvalidOperationException("模型未返回内容。");
+            DiagnosticLogger.Log("Model response content is empty.", new InvalidOperationException(responseContent));
+            throw new InvalidOperationException("Model response content is empty.");
         }
 
         return content.Trim();

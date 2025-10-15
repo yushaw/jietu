@@ -1,5 +1,6 @@
 using System;
 using System.Net.Http;
+using System.Threading;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
@@ -20,6 +21,15 @@ public partial class App : Application
     private IServiceProvider? _services;
     private TrayIcon? _trayIcon;
     private WindowIcon? _trayIconIcon;
+    private LocalizationService? _localization;
+    private NativeMenuItem? _trayOpenItem;
+    private NativeMenuItem? _trayCaptureItem;
+    private NativeMenuItem? _trayExitItem;
+    private EventHandler? _localizationChangedHandler;
+    private EventHandler<bool>? _visibilityHandler;
+    private bool _shouldRestoreMainWindow;
+    private static EventWaitHandle? _activationEvent;
+    private RegisteredWaitHandle? _activationWaitHandle;
 
     public App()
     {
@@ -30,7 +40,7 @@ public partial class App : Application
     }
 
     public static IServiceProvider Services => _current?._services
-        ?? throw new InvalidOperationException("应用尚未初始化 ServiceProvider。");
+        ?? throw new InvalidOperationException("Service provider has not been initialized.");
 
     public override void Initialize()
     {
@@ -42,7 +52,12 @@ public partial class App : Application
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
             _services ??= ConfigureServices();
-            DiagnosticLogger.Log("应用启动，服务容器已创建。");
+            DiagnosticLogger.Log("Application started, service container created.");
+            _localization = _services.GetRequiredService<LocalizationService>();
+            var settingsService = _services.GetRequiredService<SettingsService>();
+            _localization.ApplyLanguage(settingsService.Current.Language);
+            _localizationChangedHandler = (_, _) => UpdateTrayTexts();
+            _localization.LanguageChanged += _localizationChangedHandler;
             var mainWindow = _services.GetRequiredService<MainWindow>();
             mainWindow.Icon = LoadWindowIcon();
             desktop.MainWindow = mainWindow;
@@ -58,7 +73,7 @@ public partial class App : Application
     {
         if (!OperatingSystem.IsWindows())
         {
-            throw new PlatformNotSupportedException("SnapDescribe 目前仅支持在 Windows 上运行。");
+            throw new PlatformNotSupportedException("SnapDescribe currently supports Windows only.");
         }
 
         var services = new ServiceCollection();
@@ -68,6 +83,7 @@ public partial class App : Application
             Timeout = TimeSpan.FromSeconds(60)
         });
         services.AddSingleton<SettingsService>();
+        services.AddSingleton<LocalizationService>();
         services.AddSingleton<IScreenshotService, ScreenshotService>();
         services.AddSingleton<IAiClient, GlmClient>();
         services.AddSingleton<GlobalHotkeyService>();
@@ -75,6 +91,11 @@ public partial class App : Application
         services.AddSingleton<MainWindow>();
 
         return services.BuildServiceProvider();
+    }
+
+    public static void RegisterActivationEvent(EventWaitHandle handle)
+    {
+        _activationEvent = handle;
     }
 
     private WindowIcon LoadWindowIcon()
@@ -95,55 +116,144 @@ public partial class App : Application
     {
         var viewModel = _services!.GetRequiredService<MainWindowViewModel>();
 
-        var openItem = new NativeMenuItem("打开主界面");
-        openItem.Click += (_, _) => Dispatcher.UIThread.Post(() =>
-        {
-            mainWindow.Show();
-            mainWindow.Activate();
-        });
+        _trayOpenItem = new NativeMenuItem();
+        _trayOpenItem.Click += (_, _) => Dispatcher.UIThread.Post(() => ShowMainWindow(mainWindow));
 
-        var captureItem = new NativeMenuItem("捕捉屏幕");
-        captureItem.Click += async (_, _) =>
+        _trayCaptureItem = new NativeMenuItem();
+        _trayCaptureItem.Click += async (_, _) =>
         {
             await viewModel.CaptureCommand.ExecuteAsync(null);
         };
 
-        var exitItem = new NativeMenuItem("退出");
-        exitItem.Click += (_, _) => Dispatcher.UIThread.Post(() =>
+        _trayExitItem = new NativeMenuItem();
+        _trayExitItem.Click += (_, _) => Dispatcher.UIThread.Post(() =>
         {
             mainWindow.ForceClose();
             desktop.Shutdown();
         });
 
         var menu = new NativeMenu();
-        menu.Items.Add(openItem);
+        menu.Items.Add(_trayOpenItem);
         menu.Items.Add(new NativeMenuItemSeparator());
-        menu.Items.Add(captureItem);
+        menu.Items.Add(_trayCaptureItem);
         menu.Items.Add(new NativeMenuItemSeparator());
-        menu.Items.Add(exitItem);
+        menu.Items.Add(_trayExitItem);
 
         _trayIcon = new TrayIcon
         {
             Icon = LoadWindowIcon(),
-            ToolTipText = "SnapDescribe 截图助手",
+            ToolTipText = L("App.Tray.Tooltip"),
             Menu = menu
         };
 
-        _trayIcon.Clicked += (_, _) =>
+        _trayIcon.Clicked += (_, _) => ShowMainWindow(mainWindow);
+
+        UpdateTrayTexts();
+        _trayIcon.IsVisible = true;
+
+        _visibilityHandler = (_, visible) =>
+        {
+            if (Dispatcher.UIThread.CheckAccess())
+            {
+                ToggleMainWindow(mainWindow, visible);
+            }
+            else
+            {
+                Dispatcher.UIThread.Post(() => ToggleMainWindow(mainWindow, visible));
+            }
+        };
+        viewModel.RequestMainWindowVisibility += _visibilityHandler;
+
+        if (_activationEvent is not null)
+        {
+            _activationWaitHandle = ThreadPool.RegisterWaitForSingleObject(
+                _activationEvent,
+                (_, _) => Dispatcher.UIThread.Post(() => ShowMainWindow(mainWindow)),
+                null,
+                -1,
+                false);
+        }
+    }
+
+    private void UpdateTrayTexts()
+    {
+        if (_trayIcon is not null)
+        {
+            _trayIcon.ToolTipText = L("App.Tray.Tooltip");
+        }
+
+        if (_trayOpenItem is not null)
+        {
+            _trayOpenItem.Header = L("Tray.Open");
+        }
+
+        if (_trayCaptureItem is not null)
+        {
+            _trayCaptureItem.Header = L("Tray.Capture");
+        }
+
+        if (_trayExitItem is not null)
+        {
+            _trayExitItem.Header = L("Tray.Exit");
+        }
+    }
+
+    private string L(string key) => _localization?.GetString(key) ?? key;
+
+    private void ToggleMainWindow(MainWindow mainWindow, bool visible)
+    {
+        if (visible)
+        {
+            if (_shouldRestoreMainWindow)
+            {
+                _shouldRestoreMainWindow = false;
+                ShowMainWindow(mainWindow);
+            }
+        }
+        else if (mainWindow.IsVisible)
+        {
+            _shouldRestoreMainWindow = true;
+            mainWindow.Hide();
+        }
+    }
+
+    private void ShowMainWindow(MainWindow mainWindow)
+    {
+        if (!mainWindow.IsVisible)
         {
             mainWindow.Show();
-            mainWindow.Activate();
-        };
+        }
 
-        _trayIcon.IsVisible = true;
+        mainWindow.WindowState = WindowState.Normal;
+        mainWindow.Activate();
     }
 
     private void Shutdown()
     {
-        DiagnosticLogger.Log("应用正在关闭。");
+        DiagnosticLogger.Log("Application is shutting down.");
         _trayIcon?.Dispose();
         _trayIcon = null;
         _trayIconIcon = null;
+
+        if (_localization is not null && _localizationChangedHandler is not null)
+        {
+            _localization.LanguageChanged -= _localizationChangedHandler;
+            _localizationChangedHandler = null;
+        }
+
+        if (_services is not null && _visibilityHandler is not null)
+        {
+            var vm = _services.GetService<MainWindowViewModel>();
+            if (vm is not null)
+            {
+                vm.RequestMainWindowVisibility -= _visibilityHandler;
+            }
+
+            _visibilityHandler = null;
+        }
+
+        _activationWaitHandle?.Unregister(null);
+        _activationWaitHandle = null;
 
         if (_services is null)
         {
@@ -165,17 +275,17 @@ public partial class App : Application
     {
         if (e.ExceptionObject is Exception exception)
         {
-            DiagnosticLogger.Log("未处理异常", exception);
+            DiagnosticLogger.Log("Unhandled exception", exception);
         }
         else
         {
-            DiagnosticLogger.Log($"未处理异常：{e.ExceptionObject}");
+            DiagnosticLogger.Log($"Unhandled exception: {e.ExceptionObject}");
         }
     }
 
     private static void HandleUnobservedTaskException(object? sender, UnobservedTaskExceptionEventArgs e)
     {
-        DiagnosticLogger.Log("未观察的任务异常", e.Exception);
+        DiagnosticLogger.Log("Unobserved task exception", e.Exception);
         e.SetObserved();
     }
 }

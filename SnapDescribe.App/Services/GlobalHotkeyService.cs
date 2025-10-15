@@ -41,7 +41,7 @@ public sealed class GlobalHotkeyService : IDisposable
 
         if (!setting.TryGetBinding(out var binding))
         {
-            throw new InvalidOperationException($"无法解析快捷键：{setting.Shortcut}");
+            throw new InvalidOperationException($"Unable to parse shortcut: {setting.Shortcut}");
         }
 
         EnsureMessageWindow();
@@ -52,7 +52,7 @@ public sealed class GlobalHotkeyService : IDisposable
             if (!Native.RegisterHotKey(_windowHandle, id, (uint)binding.Modifiers, binding.VirtualKey))
             {
                 var error = Marshal.GetLastWin32Error();
-                throw new InvalidOperationException($"注册快捷键失败（错误码 {error}）。请确认快捷键未被其他程序占用。");
+                throw new InvalidOperationException($"Failed to register hotkey (error {error}). Ensure the shortcut is not used by another application.");
             }
 
             _registrations[id] = new HotkeyRegistration(id, name, setting);
@@ -112,7 +112,7 @@ public sealed class GlobalHotkeyService : IDisposable
             var moduleHandle = Native.GetModuleHandle(null);
             if (moduleHandle == IntPtr.Zero)
             {
-                throw new InvalidOperationException("无法获取当前模块句柄。");
+                throw new InvalidOperationException("Unable to acquire current module handle.");
             }
             var className = "SnapDescribeHotkeyWnd";
 
@@ -128,7 +128,7 @@ public sealed class GlobalHotkeyService : IDisposable
             if (atom == 0)
             {
                 var error = Marshal.GetLastWin32Error();
-                _windowReady?.TrySetException(new InvalidOperationException($"RegisterClassEx 失败（{error}）。"));
+                _windowReady?.TrySetException(new InvalidOperationException($"RegisterClassEx failed ({error})."));
                 return;
             }
 
@@ -149,7 +149,7 @@ public sealed class GlobalHotkeyService : IDisposable
             if (handle == IntPtr.Zero)
             {
                 var error = Marshal.GetLastWin32Error();
-                _windowReady?.TrySetException(new InvalidOperationException($"CreateWindowEx 失败（{error}）。"));
+                _windowReady?.TrySetException(new InvalidOperationException($"CreateWindowEx failed ({error})."));
                 return;
             }
 
@@ -174,7 +174,7 @@ public sealed class GlobalHotkeyService : IDisposable
     {
         if (_windowHandle == IntPtr.Zero)
         {
-            throw new InvalidOperationException("快捷键窗口尚未初始化。");
+            throw new InvalidOperationException("Hotkey window has not been initialized.");
         }
 
         var completion = new TaskCompletionSource<T>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -195,7 +195,7 @@ public sealed class GlobalHotkeyService : IDisposable
         if (!Native.PostMessage(_windowHandle, WmAppExecute, IntPtr.Zero, IntPtr.Zero))
         {
             var error = Marshal.GetLastWin32Error();
-            completion.TrySetException(new InvalidOperationException($"无法通知快捷键线程（错误码 {error}）。"));
+            completion.TrySetException(new InvalidOperationException($"Failed to notify hotkey thread (error {error})."));
             return completion.Task.GetAwaiter().GetResult();
         }
 

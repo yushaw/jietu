@@ -20,7 +20,9 @@ public sealed class RegionSelectionWindow : Window
     {
         "snapdescribe.exe",
         "snapdescribe.app.exe",
-        "cgedata.exe"
+        "cgedata.exe",
+        "hpaudiocontrol.exe",
+        "hpaudiocontrol"
     };
 
     private readonly Canvas _overlayCanvas;
@@ -101,6 +103,8 @@ public sealed class RegionSelectionWindow : Window
     public Task<SelectionResult?> GetSelectionAsync()
     {
         Show();
+        Activate();
+        Focus();
         return _selectionCompletion.Task;
     }
 
@@ -446,7 +450,7 @@ public sealed class RegionSelectionWindow : Window
 
         foreach (var ignored in IgnoredProcessNames)
         {
-            if (string.Equals(processName, ignored, StringComparison.OrdinalIgnoreCase))
+            if (processName.Contains(ignored, StringComparison.OrdinalIgnoreCase))
             {
                 return true;
             }
@@ -482,7 +486,7 @@ public sealed class RegionSelectionWindow : Window
             }
             catch
             {
-                // 同一进程下部分模块可能无权限读取，忽略并尝试使用 ProcessName。
+                // Accessing some modules may fail due to permissions; fall back to ProcessName.
             }
 
             if (string.IsNullOrWhiteSpace(processName))

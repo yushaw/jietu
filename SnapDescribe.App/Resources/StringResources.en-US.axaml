@@ -1,0 +1,125 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <!-- Application -->
+  <x:String x:Key="App.Header">SnapDescribe Screenshot Assistant</x:String>
+  <x:String x:Key="App.Tray.Tooltip">SnapDescribe Screenshot Assistant</x:String>
+
+  <!-- Tabs -->
+  <x:String x:Key="Tab.Workbench">Workbench</x:String>
+  <x:String x:Key="Tab.Settings">Settings</x:String>
+  <x:String x:Key="Tab.BasicSettings">Basic Settings</x:String>
+  <x:String x:Key="Tab.PromptRules">Prompt Rules</x:String>
+
+  <!-- Sections -->
+  <x:String x:Key="Section.ApiConfig">API Configuration</x:String>
+  <x:String x:Key="Section.CaptureAndStorage">Capture &amp; Storage</x:String>
+
+  <!-- Buttons -->
+  <x:String x:Key="Button.Capture">Screenshot</x:String>
+  <x:String x:Key="Button.AddRule">Add Rule</x:String>
+  <x:String x:Key="Button.DeleteRule">Delete</x:String>
+  <x:String x:Key="Button.MoveUp">Up</x:String>
+  <x:String x:Key="Button.MoveDown">Down</x:String>
+  <x:String x:Key="Button.SaveSettings">Save Settings</x:String>
+  <x:String x:Key="Button.SaveRule">Save Rule</x:String>
+  <x:String x:Key="Button.RefreshDirectory">Refresh Directory</x:String>
+  <x:String x:Key="Button.Send">Send</x:String>
+  <x:String x:Key="Button.Browse">Browse...</x:String>
+
+  <!-- Labels -->
+  <x:String x:Key="Label.CaptureHint">Hint: Click a highlighted window to capture, drag for a custom region, press Esc to cancel.</x:String>
+  <x:String x:Key="Label.CurrentHotkey">Current Hotkey</x:String>
+  <x:String x:Key="Label.HistoryTitle">History</x:String>
+  <x:String x:Key="Label.HistorySubtitle">Recent screenshots and descriptions</x:String>
+  <x:String x:Key="Label.PromptUsed">Prompt Used</x:String>
+  <x:String x:Key="Label.RuleList">Rule List</x:String>
+  <x:String x:Key="Label.RuleListHint">Rules are evaluated in order. The first match overrides the default prompt.</x:String>
+  <x:String x:Key="Label.RuleDetails">Rule Details</x:String>
+  <x:String x:Key="Label.RuleDetailsHint">Fill in the process name (required), optional window title, and prompt content.</x:String>
+  <x:String x:Key="Label.ProcessName">Process Name (required)</x:String>
+  <x:String x:Key="Label.WindowTitle">Window Title</x:String>
+  <x:String x:Key="Label.Prompt">Prompt (required)</x:String>
+  <x:String x:Key="Label.DefaultPrompt">Default Prompt</x:String>
+  <x:String x:Key="Label.CaptureHotkey">Capture Hotkey</x:String>
+  <x:String x:Key="Label.OutputDirectory">Output Directory</x:String>
+  <x:String x:Key="Label.HistoryLimit">Entries to Keep</x:String>
+  <x:String x:Key="Label.InterfaceLanguage">Interface Language</x:String>
+  <x:String x:Key="Label.WindowTitleValue">Window Title</x:String>
+  <x:String x:Key="Label.ProcessNameValue">Process Name</x:String>
+  <x:String x:Key="Label.GeneratedAt">Generated at</x:String>
+  <x:String x:Key="Label.BaseUrl">Base URL</x:String>
+  <x:String x:Key="Label.ModelName">Model</x:String>
+
+  <!-- Watermarks -->
+  <x:String x:Key="Watermark.ProcessName">Example: chrome or chrome.exe</x:String>
+  <x:String x:Key="Watermark.WindowTitle">Optional: partial match supported</x:String>
+  <x:String x:Key="Watermark.ChatInput">Ask follow-up questions or request the next action...</x:String>
+
+  <!-- Language options -->
+  <x:String x:Key="Language.English">English</x:String>
+  <x:String x:Key="Language.Chinese">中文 (Chinese)</x:String>
+
+  <!-- Status messages -->
+  <x:String x:Key="Status.Ready">Ready.</x:String>
+  <x:String x:Key="Status.HotkeyUnavailable">Global hotkey unavailable; ignored.</x:String>
+  <x:String x:Key="Status.HotkeyUpdated">Hotkey updated.</x:String>
+  <x:String x:Key="Status.PreparingCapture">Preparing screenshot...</x:String>
+  <x:String x:Key="Status.CaptureCancelled">Capture cancelled.</x:String>
+  <x:String x:Key="Status.CaptureFailed">Capture failed: {0}</x:String>
+  <x:String x:Key="Status.RequestingModel">Requesting model response...</x:String>
+  <x:String x:Key="Status.Completed">Completed.</x:String>
+  <x:String x:Key="Status.GenerateFailed">Generation failed.</x:String>
+  <x:String x:Key="Status.RuleAdded">Rule added. Please complete required fields before saving.</x:String>
+  <x:String x:Key="Status.FillRequired">Please complete the required fields first.</x:String>
+  <x:String x:Key="Status.PromptSaved">Prompt rules saved.</x:String>
+  <x:String x:Key="Status.PromptSaveFailed">Failed to save prompt rules: {0}</x:String>
+  <x:String x:Key="Status.SettingsSaved">Settings saved.</x:String>
+  <x:String x:Key="Status.SettingsSaveFailed">Failed to save settings: {0}</x:String>
+  <x:String x:Key="Status.FolderPickerNotSupported">Folder picker is not supported on this platform.</x:String>
+  <x:String x:Key="Status.ReadSelectedPathFailed">Unable to read the selected path.</x:String>
+  <x:String x:Key="Status.OutputDirectoryUpdated">Output directory updated.</x:String>
+  <x:String x:Key="Status.ModelInvokeFailed">Model request failed: {0}</x:String>
+
+  <!-- Response placeholders -->
+  <x:String x:Key="Response.Generating">The model is generating a response...</x:String>
+
+  <!-- Errors -->
+  <x:String x:Key="Error.MissingImageData">Unable to read screenshot data.</x:String>
+
+  <!-- Markdown -->
+  <x:String x:Key="Markdown.ConversationTitle"># Model Conversation</x:String>
+  <x:String x:Key="Markdown.ScreenshotFile">- Screenshot: `{0}`</x:String>
+  <x:String x:Key="Markdown.GeneratedAt">- Generated at: {0:yyyy-MM-dd HH:mm:ss}</x:String>
+  <x:String x:Key="Markdown.Process">- Process: {0}</x:String>
+  <x:String x:Key="Markdown.WindowTitle">- Window Title: {0}</x:String>
+  <x:String x:Key="Markdown.PromptUsed">- Prompt Used: {0}</x:String>
+
+  <!-- Tray menu -->
+  <x:String x:Key="Tray.Open">Open Main Window</x:String>
+  <x:String x:Key="Tray.Capture">Capture Screen</x:String>
+  <x:String x:Key="Tray.Exit">Exit</x:String>
+
+  <!-- Dialog -->
+  <x:String x:Key="Dialog.ResultTitle">Result Preview</x:String>
+  <x:String x:Key="Dialog.ScreenshotHeading">Screenshot Result</x:String>
+  <x:String x:Key="Dialog.GeneratedAt">Generated at</x:String>
+  <x:String x:Key="Dialog.WindowTitle">Window Title</x:String>
+  <x:String x:Key="Dialog.ProcessName">Process Name</x:String>
+  <x:String x:Key="Dialog.PromptUsed">Prompt Used</x:String>
+  <x:String x:Key="Dialog.WindowTitleMissing">No window title detected</x:String>
+  <x:String x:Key="Dialog.ProcessNameMissing">No process name detected</x:String>
+  <x:String x:Key="Dialog.Loading">The model is generating a response...</x:String>
+  <x:String x:Key="Dialog.SelectOutputFolder">Choose screenshot output folder</x:String>
+
+  <!-- Misc -->
+  <x:String x:Key="Rule.EmptyHint">Add or select a rule on the left to start editing.</x:String>
+  <x:String x:Key="History.Empty">Unknown context</x:String>
+  <x:String x:Key="History.ProcessOnly">{0}</x:String>
+  <x:String x:Key="History.WindowOnly">{0}</x:String>
+  <x:String x:Key="History.ProcessAndWindow">{0} · {1}</x:String>
+  <x:String x:Key="LanguageSelection.Title">Choose interface language</x:String>
+  <x:String x:Key="Hotkey.Unbound">Unassigned</x:String>
+  <x:String x:Key="ChatRole.Assistant">Assistant</x:String>
+  <x:String x:Key="ChatRole.User">User</x:String>
+  <x:String x:Key="ChatRole.System">System</x:String>
+</ResourceDictionary>

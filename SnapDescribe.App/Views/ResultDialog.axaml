@@ -4,20 +4,20 @@
         xmlns:models="clr-namespace:SnapDescribe.App.Models"
         x:Class="SnapDescribe.App.Views.ResultDialog"
         x:CompileBindings="False"
-        Title="结果预览"
+        Title="{DynamicResource Dialog.ResultTitle}"
         Width="900"
         Height="640"
         MinWidth="820"
         MinHeight="560"
         CanResize="True"
         WindowStartupLocation="CenterOwner">
-    <Border Background="#F5F7FD" Padding="18">
-        <Grid ColumnDefinitions="300,*" ColumnSpacing="16">
-            <StackPanel Orientation="Vertical" Spacing="12">
+    <Border Background="#F6F8FC" Padding="24">
+        <Grid ColumnDefinitions="300,*" ColumnSpacing="24">
+            <StackPanel Orientation="Vertical" Spacing="16">
                 <Border Background="White"
-                        CornerRadius="12"
-                        Padding="16">
-                    <StackPanel Spacing="8">
+                        CornerRadius="18"
+                        Padding="18">
+                    <StackPanel Spacing="10">
                         <Image x:Name="PreviewImage"
                                Stretch="Uniform"
                                Height="200" />
@@ -25,40 +25,30 @@
                                    FontSize="18"
                                    FontWeight="SemiBold"
                                    Foreground="#1F2433"
-                                   Text="截图结果" />
+                                   Text="{DynamicResource Dialog.ScreenshotHeading}" />
                         <TextBlock x:Name="SubTitleText"
                                    FontSize="12"
                                    Foreground="#7A8199"
-                                   Text="生成于" />
-                        <StackPanel Spacing="6">
-                            <TextBlock Text="窗口标题"
+                                   Text="{DynamicResource Dialog.GeneratedAt}" />
+                        <StackPanel Spacing="8">
+                            <TextBlock Text="{DynamicResource Dialog.WindowTitle}"
                                        FontSize="12"
                                        Foreground="#7A8199" />
-                            <TextBlock FontSize="13"
+                            <TextBlock x:Name="WindowTitleValue"
+                                       FontSize="13"
                                        Foreground="#2E3554"
-                                       TextWrapping="Wrap">
-                                <TextBlock.Text>
-                                    <Binding Path="WindowTitle"
-                                             TargetNullValue="未获取窗口标题"
-                                             StringFormat="{}{0}" />
-                                </TextBlock.Text>
-                            </TextBlock>
-                            <TextBlock Text="进程名称"
+                                       TextWrapping="Wrap" />
+                            <TextBlock Text="{DynamicResource Dialog.ProcessName}"
                                        FontSize="12"
                                        Foreground="#7A8199"
                                        Margin="0,6,0,0" />
-                            <TextBlock FontSize="13"
+                            <TextBlock x:Name="ProcessNameValue"
+                                       FontSize="13"
                                        Foreground="#2E3554"
-                                       TextWrapping="Wrap">
-                                <TextBlock.Text>
-                                    <Binding Path="ProcessName"
-                                             TargetNullValue="未获取进程名称"
-                                             StringFormat="{}{0}" />
-                                </TextBlock.Text>
-                            </TextBlock>
+                                       TextWrapping="Wrap" />
                         </StackPanel>
                         <StackPanel Spacing="6">
-                            <TextBlock Text="使用 Prompt"
+                            <TextBlock Text="{DynamicResource Dialog.PromptUsed}"
                                        FontSize="12"
                                        Foreground="#7A8199" />
                             <TextBlock Text="{Binding Prompt}"
@@ -70,18 +60,18 @@
                 </Border>
             </StackPanel>
 
-            <Grid Grid.Column="1"
-                  Background="White">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="*" />
-                    <RowDefinition Height="Auto" />
-                </Grid.RowDefinitions>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                </Grid.ColumnDefinitions>
+            <Border Grid.Column="1"
+                    Background="White"
+                    CornerRadius="18"
+                    Padding="18">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
 
-                <Grid Grid.Row="0"
-                      Margin="0,0,0,1">
+                    <Grid Grid.Row="0"
+                          Margin="0,0,0,1">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="*" />
                     </Grid.RowDefinitions>
@@ -130,7 +120,7 @@
                             IsVisible="False">
                         <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Center">
                             <ProgressBar IsIndeterminate="True" Width="140" Height="6" />
-                            <TextBlock Text="模型正在生成回复..."
+                            <TextBlock Text="{DynamicResource Dialog.Loading}"
                                        FontSize="12"
                                        Foreground="#394264"
                                        VerticalAlignment="Center" />
@@ -138,23 +128,25 @@
                     </Border>
                 </Grid>
 
-                <Grid Grid.Row="1" ColumnDefinitions="*,Auto" Background="#F8FAFF" Margin="0" Height="90">
-                    <TextBox x:Name="ChatInput"
-                             Grid.Column="0"
-                             Watermark="继续提问或让模型执行下一步..."
-                             AcceptsReturn="True"
-                             Margin="14,14,10,14"
-                             TextWrapping="Wrap"
-                             Padding="10"
-                             MaxLength="800" />
-                    <Button x:Name="SendButton"
-                            Grid.Column="1"
-                            Content="发送"
-                            Padding="18,12"
-                            Width="110"
-                            Margin="0,14,14,14" />
+                    <Grid Grid.Row="1" ColumnDefinitions="*,Auto" Background="#F8FAFF" Margin="0" Height="90">
+                        <TextBox x:Name="ChatInput"
+                                 Grid.Column="0"
+                                 Watermark="{DynamicResource Watermark.ChatInput}"
+                                 AcceptsReturn="True"
+                                 Margin="14,14,10,14"
+                                 TextWrapping="Wrap"
+                                 Padding="12"
+                                 MaxLength="800" />
+                        <Button x:Name="SendButton"
+                                Grid.Column="1"
+                                Classes="primary"
+                                Content="{DynamicResource Button.Send}"
+                                Padding="18,12"
+                                Width="120"
+                                Margin="0,14,14,14" />
+                    </Grid>
                 </Grid>
-            </Grid>
+            </Border>
         </Grid>
     </Border>
 </Window>

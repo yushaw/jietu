@@ -1,4 +1,5 @@
 using CommunityToolkit.Mvvm.ComponentModel;
+using SnapDescribe.App.Services;
 
 namespace SnapDescribe.App.Models;
 
@@ -9,19 +10,27 @@ public partial class ChatMessage : ObservableObject
         Role = role;
         Content = content;
         IncludeImage = includeImage;
+        LocalizationService.Instance.LanguageChanged += (_, _) => OnPropertyChanged(nameof(DisplayRole));
     }
 
     public string Role { get; }
 
     public bool IncludeImage { get; set; }
 
-    public string DisplayRole => Role switch
+    public string DisplayRole
     {
-        "assistant" => "模型",
-        "user" => "用户",
-        "system" => "系统",
-        _ => Role
-    };
+        get
+        {
+            var localization = LocalizationService.Instance;
+            return Role switch
+            {
+                "assistant" => localization.GetString("ChatRole.Assistant"),
+                "user" => localization.GetString("ChatRole.User"),
+                "system" => localization.GetString("ChatRole.System"),
+                _ => Role
+            };
+        }
+    }
 
     [ObservableProperty]
     private string content;

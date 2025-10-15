@@ -20,6 +20,8 @@ SnapDescribe 是一款基于 Avalonia 的桌面截图助手，可以在 Windows 
 - **结果预览**：弹窗展示截图、元数据、对话记录，可直接继续追问或复制内容。
 - **本地持久化**：截图、Markdown 会话与日志默认保存到用户目录，易于归档。
 - **全局热键与托盘**：默认 `Alt+T`，可自定义，同时支持托盘菜单快捷操作。
+- **多语言界面**：内置中文/英文，首次启动自动匹配系统语言，可在设置页一键切换。
+- **主窗口自动隐藏**：截图时自动最小化主界面，完成后恢复，避免遮挡截图区域。
 
 ## 安装与快速体验
 
@@ -38,7 +40,7 @@ dotnet restore
 dotnet run --project SnapDescribe.App
 ```
 
-首次运行请在“设置”页填写 Base URL（默认 `https://open.bigmodel.cn/api/paas/v4/`）、API Key 与模型名称（默认 `glm-4.5v`），随后即可通过按钮或全局热键启动截图流程。
+首次运行请在“设置”页填写 Base URL（默认 `https://open.bigmodel.cn/api/paas/v4/`）、API Key 与模型名称（默认 `glm-4.5v`），随后即可通过按钮或全局热键启动截图流程。应用会根据系统语言自动选择中文或英文界面，也可随时在设置页切换。
 
 ## 发布与升级
 
@@ -48,7 +50,7 @@ dotnet run --project SnapDescribe.App
 dotnet publish SnapDescribe.App -c Release -r win-x64 --self-contained true /p:PublishSingleFile=true
 ```
 
-输出位于 `SnapDescribe.App/bin/Release/net8.0/win-x64/publish/`，其中的 `SnapDescribe.App.exe` 可直接分发。仓库内的 `.github/workflows/release.yml` 会在推送 `v*` 标签后自动构建同样的发布包并创建 GitHub Release。
+输出位于 `SnapDescribe.App/bin/Release/net8.0/win-x64/publish/`，其中的 `SnapDescribe.exe` 可直接分发。仓库内的 `.github/workflows/release.yml` 会在推送 `v*` 标签后自动构建同样的发布包并创建 GitHub Release。
 
 后续版本将补充自动更新通道，确保应用能在系统内直接检测并安装新版本。
 

@@ -18,54 +18,74 @@
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
-            <TextBlock Grid.Row="0"
-                       Text="SnapDescribe 截图助手"
-                       FontSize="22"
-                       FontWeight="SemiBold"
-                       Margin="4,0,0,16" />
+            <Grid Grid.Row="0"
+                  ColumnDefinitions="*,Auto"
+                  Margin="0,0,0,20">
+                <TextBlock Grid.Column="0"
+                           Text="{DynamicResource App.Header}"
+                           FontSize="24"
+                           FontWeight="SemiBold"
+                           Foreground="#1F2433"
+                           VerticalAlignment="Center" />
+                <Border Grid.Column="1"
+                        Background="#E7ECF8"
+                        CornerRadius="999"
+                        Padding="10,4"
+                        VerticalAlignment="Center"
+                        IsVisible="{Binding HasStatusMessage}">
+                    <TextBlock Text="{Binding StatusMessage}"
+                               FontSize="13"
+                               Foreground="#334155" />
+                </Border>
+            </Grid>
 
             <TabControl Grid.Row="1"
                         Background="Transparent"
                         BorderBrush="Transparent"
                         Padding="0">
-                <TabItem Header="工作台">
+                <TabItem Header="{DynamicResource Tab.Workbench}">
                     <Grid RowDefinitions="Auto,*"
                           RowSpacing="14">
-                        <Border Padding="18"
+                        <Border Padding="20"
                                 Background="White"
-                                CornerRadius="12"
-                                Classes="card">
-                            <Grid ColumnDefinitions="Auto,*"
-                                  ColumnSpacing="16">
+                                CornerRadius="18">
+                            <Grid ColumnDefinitions="Auto,*,Auto"
+                                  ColumnSpacing="24"
+                                  VerticalAlignment="Center">
                                 <Button Grid.Column="0"
-                                        Content="捕捉屏幕"
-                                        Command="{Binding CaptureCommand}"
-                                        Padding="18,12"
-                                        HorizontalAlignment="Left"/>
+                                        MinWidth="150"
+                                        MinHeight="44"
+                                        Classes="primary"
+                                        FontSize="17"
+                                        FontWeight="SemiBold"
+                                        HorizontalContentAlignment="Center"
+                                        VerticalContentAlignment="Center"
+                                        Content="{DynamicResource Button.Capture}"
+                                        Command="{Binding CaptureCommand}" />
 
-                                <StackPanel Grid.Column="1" Orientation="Vertical" Spacing="4">
-                                    <TextBlock Text="{Binding StatusMessage}"
-                                               FontSize="14"
-                                               FontWeight="Medium"
-                                               Foreground="#394264" />
-                                    <TextBlock Text="提示：单击高亮窗口即可截图，拖拽选择自定义区域，按 Esc 取消"
+                                <StackPanel Grid.Column="1"
+                                            Orientation="Vertical"
+                                            Spacing="6"
+                                            VerticalAlignment="Center">
+                                    <TextBlock Text="{DynamicResource Label.CaptureHint}"
                                                FontSize="12"
-                                           Foreground="#7A8199" />
+                                               Foreground="#687089" />
                                 </StackPanel>
 
-                                <Border Grid.Column="1"
-                                        Background="#F4F6FB"
-                                        CornerRadius="8"
-                                        Padding="10,6"
-                                        HorizontalAlignment="Right">
-                                    <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-                                        <TextBlock Text="当前快捷键"
+                                <Border Grid.Column="2"
+                                        Background="#EFF2FB"
+                                        CornerRadius="12"
+                                        Padding="10,8">
+                                    <StackPanel Orientation="Horizontal"
+                                                Spacing="6"
+                                                VerticalAlignment="Center">
+                                        <TextBlock Text="{DynamicResource Label.CurrentHotkey}"
                                                    FontSize="12"
-                                                   Foreground="#7A8199" />
+                                                   Foreground="#6B7280" />
                                         <TextBlock Text="{Binding Settings.CaptureHotkey.Shortcut}"
                                                    FontSize="12"
                                                    FontWeight="SemiBold"
-                                                   Foreground="#394264" />
+                                                   Foreground="#111827" />
                                     </StackPanel>
                                 </Border>
                             </Grid>
@@ -73,17 +93,16 @@
 
                         <Border Grid.Row="1"
                                 Background="White"
-                                CornerRadius="12"
-                                Classes="card">
-                            <Grid ColumnDefinitions="280,*"
-                                  Margin="16"
-                                  ColumnSpacing="16">
+                                CornerRadius="18"
+                                Padding="20">
+                            <Grid ColumnDefinitions="300,*"
+                                  ColumnSpacing="20">
                                 <StackPanel Grid.Column="0" Spacing="8">
-                                    <TextBlock Text="历史记录"
+                                    <TextBlock Text="{DynamicResource Label.HistoryTitle}"
                                                FontWeight="SemiBold"
                                                FontSize="16"
                                                Foreground="#1F2433" />
-                                    <TextBlock Text="最近生成的截图与描述"
+                                    <TextBlock Text="{DynamicResource Label.HistorySubtitle}"
                                                FontSize="12"
                                                Foreground="#7A8199" />
                                     <ScrollViewer Margin="0,12,0,0"
@@ -97,22 +116,24 @@
                                                 <DataTemplate>
                                                     <Border Padding="10"
                                                             Margin="0,0,0,10"
-                                                            Background="#F8FAFF"
-                                                            CornerRadius="8">
+                                                            Background="#F7F9FF"
+                                                            BorderBrush="#E2E8F6"
+                                                            BorderThickness="1"
+                                                            CornerRadius="12">
                                                         <StackPanel>
                                                             <TextBlock Text="{Binding DisplayTitle}"
                                                                        FontWeight="SemiBold"
-                                                                       Foreground="#2E3554" />
+                                                                       Foreground="#1F2433" />
                                                             <TextBlock Text="{Binding DisplayContext}"
                                                                        FontSize="12"
-                                                                       Foreground="#5C6480"
+                                                                       Foreground="#6B7280"
                                                                        TextWrapping="Wrap"
-                                                                       Margin="0,4,0,0" />
+                                                                       Margin="4,2,0,0" />
                                                             <TextBlock Text="{Binding Prompt}"
                                                                        FontSize="12"
-                                                                       Foreground="#7A8199"
+                                                                       Foreground="#94A3B8"
                                                                        TextWrapping="Wrap"
-                                                                       Margin="0,4,0,0" />
+                                                                       Margin="4,2,0,0" />
                                                         </StackPanel>
                                                     </Border>
                                                 </DataTemplate>
@@ -121,36 +142,38 @@
                                     </ScrollViewer>
                                 </StackPanel>
 
-                                <StackPanel Grid.Column="1" Spacing="12">
+                                <StackPanel Grid.Column="1" Spacing="16">
                                     <TextBlock Text="{Binding SelectedRecord.DisplayTitle}"
                                                FontWeight="SemiBold"
-                                               FontSize="16"
-                                               Foreground="#1F2433" />
+                                               FontSize="17"
+                                               Foreground="#111827" />
                                     <TextBlock Text="{Binding SelectedRecord.DisplayContext}"
                                                FontSize="12"
-                                               Foreground="#5C6480" />
-                                    <Border Background="#F0F4FF"
-                                            CornerRadius="10"
-                                            Padding="12"
+                                               Foreground="#6B7280" />
+                                    <Border Background="#F9FAFD"
+                                            CornerRadius="16"
+                                            Padding="14"
+                                            BorderBrush="#E2E8F6"
+                                            BorderThickness="1"
                                             Height="320">
                                         <Image Source="{Binding PreviewImage}"
                                                Stretch="Uniform"
                                                HorizontalAlignment="Center"
                                                VerticalAlignment="Center" />
                                     </Border>
-                                    <Border Background="#FFFFFF"
-                                            CornerRadius="10"
-                                            Padding="12"
-                                            BorderBrush="#E3E7F5"
+                                    <Border Background="White"
+                                            CornerRadius="16"
+                                            Padding="14"
+                                            BorderBrush="#E2E8F6"
                                             BorderThickness="1">
                                         <StackPanel Spacing="6">
-                                            <TextBlock Text="使用 Prompt"
+                                            <TextBlock Text="{DynamicResource Label.PromptUsed}"
                                                        FontWeight="SemiBold"
                                                        FontSize="13"
                                                        Foreground="#1F2433" />
                                             <TextBlock Text="{Binding SelectedRecord.Prompt}"
                                                        FontSize="12"
-                                                       Foreground="#2E3554"
+                                                       Foreground="#334155"
                                                        TextWrapping="Wrap" />
                                         </StackPanel>
                                     </Border>
@@ -160,20 +183,19 @@
                     </Grid>
                 </TabItem>
 
-                <TabItem Header="设置">
+                <TabItem Header="{DynamicResource Tab.Settings}">
                     <TabControl Margin="0,6,0,0"
                                  Background="Transparent"
                                  BorderBrush="Transparent"
                                  Padding="0">
-                        <TabItem Header="基础设置">
+                        <TabItem Header="{DynamicResource Tab.BasicSettings}">
                             <ScrollViewer>
                                 <StackPanel Spacing="16">
                                     <Border Background="White"
-                                            CornerRadius="12"
-                                            Padding="20"
-                                            Classes="card">
-                                        <StackPanel Spacing="14">
-                                            <TextBlock Text="接口配置"
+                                            CornerRadius="18"
+                                            Padding="22">
+                                        <StackPanel Spacing="16">
+                                            <TextBlock Text="{DynamicResource Section.ApiConfig}"
                                                        FontSize="18"
                                                        FontWeight="SemiBold"
                                                        Foreground="#1F2433" />
@@ -181,14 +203,14 @@
                                                   RowDefinitions="Auto,Auto,Auto"
                                                   RowSpacing="12"
                                                   ColumnSpacing="12">
-                                                <TextBlock Grid.Row="0" Grid.Column="0" VerticalAlignment="Center" Text="Base URL" />
+                                                <TextBlock Grid.Row="0" Grid.Column="0" VerticalAlignment="Center" Text="{DynamicResource Label.BaseUrl}" />
                                                 <TextBox x:Name="BaseUrlTextBox"
                                                          Grid.Row="0"
                                                          Grid.Column="1"
                                                          Text="{Binding Settings.BaseUrl, UpdateSourceTrigger=PropertyChanged}"
                                                          Watermark="https://open.bigmodel.cn/api/paas/v4/" />
 
-                                                <TextBlock Grid.Row="1" Grid.Column="0" VerticalAlignment="Center" Text="模型名称" />
+                                                <TextBlock Grid.Row="1" Grid.Column="0" VerticalAlignment="Center" Text="{DynamicResource Label.ModelName}" />
                                                 <TextBox x:Name="ModelTextBox"
                                                          Grid.Row="1"
                                                          Grid.Column="1"
@@ -208,15 +230,15 @@
                                             Padding="20"
                                             Classes="card">
                                         <StackPanel Spacing="14">
-                                            <TextBlock Text="捕捉与保存"
+                                            <TextBlock Text="{DynamicResource Section.CaptureAndStorage}"
                                                        FontSize="18"
                                                        FontWeight="SemiBold"
                                                        Foreground="#1F2433" />
                                             <Grid ColumnDefinitions="160,*"
-                                                  RowDefinitions="Auto,Auto,Auto,Auto,Auto"
+                                                  RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto"
                                                   RowSpacing="12"
                                                   ColumnSpacing="12">
-                                                <TextBlock Grid.Row="0" Grid.Column="0" VerticalAlignment="Center" Text="默认 Prompt" />
+                                                <TextBlock Grid.Row="0" Grid.Column="0" VerticalAlignment="Center" Text="{DynamicResource Label.DefaultPrompt}" />
                                                 <TextBox x:Name="DefaultPromptTextBox"
                                                          Grid.Row="0"
                                                          Grid.Column="1"
@@ -225,15 +247,24 @@
                                                          Height="68"
                                                          Text="{Binding Settings.DefaultPrompt, UpdateSourceTrigger=PropertyChanged}" />
 
-                                                <TextBlock Grid.Row="1" Grid.Column="0" VerticalAlignment="Center" Text="捕捉热键" />
+                                                <TextBlock Grid.Row="1" Grid.Column="0" VerticalAlignment="Center" Text="{DynamicResource Label.CaptureHotkey}" />
                                                 <TextBox x:Name="HotkeyTextBox"
                                                          Grid.Row="1"
                                                          Grid.Column="1"
                                                          IsReadOnly="True"
                                                          Text="{Binding Settings.CaptureHotkey.Shortcut}" />
 
-                                                <TextBlock Grid.Row="2" Grid.Column="0" VerticalAlignment="Center" Text="输出目录" />
-                                                <StackPanel Grid.Row="2"
+                                                <TextBlock Grid.Row="2" Grid.Column="0" VerticalAlignment="Center" Text="{DynamicResource Label.InterfaceLanguage}" />
+                                                <ComboBox x:Name="LanguageComboBox"
+                                                          Grid.Row="2"
+                                                          Grid.Column="1"
+                                                          Width="180">
+                                                    <ComboBoxItem Content="{DynamicResource Language.Chinese}" Tag="zh-CN" />
+                                                    <ComboBoxItem Content="{DynamicResource Language.English}" Tag="en-US" />
+                                                </ComboBox>
+
+                                                <TextBlock Grid.Row="3" Grid.Column="0" VerticalAlignment="Center" Text="{DynamicResource Label.OutputDirectory}" />
+                                                <StackPanel Grid.Row="3"
                                                             Grid.Column="1"
                                                             Orientation="Horizontal"
                                                             Spacing="8">
@@ -241,29 +272,28 @@
                                                              Width="360"
                                                              Text="{Binding Settings.OutputDirectory, UpdateSourceTrigger=PropertyChanged}" />
                                                     <Button x:Name="BrowseFolderButton"
-                                                            Content="浏览..." />
+                                                            Classes="outline"
+                                                            Content="{DynamicResource Button.Browse}" />
                                                 </StackPanel>
 
-                                                <TextBlock Grid.Row="3" Grid.Column="0" VerticalAlignment="Center" Text="保留条数" />
-                                                <StackPanel Grid.Row="3"
+                                                <TextBlock Grid.Row="4" Grid.Column="0" VerticalAlignment="Center" Text="{DynamicResource Label.HistoryLimit}" />
+                                                <StackPanel Grid.Row="4"
                                                             Grid.Column="1"
                                                             Orientation="Horizontal"
                                                             Spacing="8">
                                                     <TextBox x:Name="HistoryLimitTextBox"
                                                              Width="80"
                                                              Text="{Binding Settings.HistoryLimit, UpdateSourceTrigger=PropertyChanged}" />
-                                                    <Button Content="刷新目录"
+                                                    <Button Content="{DynamicResource Button.RefreshDirectory}"
+                                                            Classes="outline"
                                                             Command="{Binding RefreshOutputFolderCommand}" />
                                                 </StackPanel>
 
-                                                <Button Grid.Row="4"
+                                                <Button Grid.Row="5"
                                                         Grid.Column="1"
-                                                        Content="保存设置"
+                                                        Classes="primary"
+                                                        Content="{DynamicResource Button.SaveSettings}"
                                                         Command="{Binding SaveSettingsCommand}"
-                                                        Background="#4C6EF5"
-                                                        Foreground="White"
-                                                        Padding="18,10"
-                                                        FontWeight="SemiBold"
                                                         HorizontalAlignment="Left" />
                                             </Grid>
                                         </StackPanel>
@@ -272,56 +302,62 @@
                             </ScrollViewer>
                         </TabItem>
 
-                        <TabItem Header="Prompt 模板">
+                        <TabItem Header="{DynamicResource Tab.PromptRules}">
                             <Grid ColumnDefinitions="300,*"
                                   ColumnSpacing="16">
                                 <StackPanel Grid.Column="0"
                                             Spacing="12">
                                     <Border Background="White"
-                                            CornerRadius="12"
-                                            Padding="16"
-                                            Classes="card">
-                                        <StackPanel Spacing="10">
-                                            <TextBlock Text="规则列表"
+                                            CornerRadius="18"
+                                            Padding="20">
+                                            <StackPanel Spacing="12">
+                                            <TextBlock Text="{DynamicResource Label.RuleList}"
                                                        FontSize="16"
                                                        FontWeight="SemiBold"
                                                        Foreground="#1F2433" />
-                                            <TextBlock Text="按顺序匹配，命中后将覆盖默认 Prompt"
+                                            <TextBlock Text="{DynamicResource Label.RuleListHint}"
                                                        FontSize="12"
                                                        Foreground="#7A8199" />
-                                            <StackPanel Orientation="Horizontal"
-                                                        Spacing="8">
-                                                <Button Content="新增规则"
+                                            <WrapPanel ItemSpacing="8">
+                                                <Button Content="{DynamicResource Button.AddRule}"
+                                                        Classes="primary"
                                                         Command="{Binding AddPromptRuleCommand}" />
-                                                <Button Content="删除"
+                                                <Button Content="{DynamicResource Button.DeleteRule}"
+                                                        Classes="outline"
                                                         Command="{Binding RemovePromptRuleCommand}" />
-                                                <Button Content="上移"
+                                                <Button Content="{DynamicResource Button.MoveUp}"
+                                                        Classes="outline"
+                                                        Padding="8,6"
+                                                        FontSize="12"
                                                         Command="{Binding MovePromptRuleUpCommand}" />
-                                                <Button Content="下移"
+                                                <Button Content="{DynamicResource Button.MoveDown}"
+                                                        Classes="outline"
+                                                        Padding="8,6"
+                                                        FontSize="12"
                                                         Command="{Binding MovePromptRuleDownCommand}" />
-                                            </StackPanel>
+                                            </WrapPanel>
                                             <ListBox ItemsSource="{Binding Settings.PromptRules}"
                                                      SelectedItem="{Binding SelectedPromptRule}"
                                                      Background="#F7F9FF"
-                                                     BorderBrush="#E1E6F6"
-                                                     Margin="0,8,0,0"
+                                                     BorderBrush="#E2E8F6"
+                                                     Margin="0,10,0,0"
                                                      Height="420">
                                                 <ListBox.ItemTemplate>
                                                     <DataTemplate>
                                                         <Border Background="Transparent"
-                                                                Padding="10"
-                                                                CornerRadius="8">
+                                                                Padding="12"
+                                                                CornerRadius="10">
                                                             <StackPanel Spacing="4">
                                                                 <TextBlock Text="{Binding ProcessName}"
                                                                            FontWeight="SemiBold"
-                                                                           Foreground="#2E3554" />
+                                                                           Foreground="#1F2937" />
                                                                 <TextBlock Text="{Binding WindowTitle}"
                                                                            FontSize="12"
-                                                                           Foreground="#7A8199"
+                                                                           Foreground="#6B7280"
                                                                            TextWrapping="Wrap" />
                                                                 <TextBlock Text="{Binding Prompt}"
                                                                            FontSize="12"
-                                                                           Foreground="#5C6480"
+                                                                           Foreground="#4B5563"
                                                                            TextWrapping="Wrap"
                                                                            MaxHeight="72" />
                                                             </StackPanel>
@@ -335,17 +371,16 @@
 
                                 <Border Grid.Column="1"
                                         Background="White"
-                                        CornerRadius="12"
-                                        Padding="20"
-                                        Classes="card">
+                                        CornerRadius="18"
+                                        Padding="22">
                                     <Grid RowDefinitions="Auto,*"
                                           RowSpacing="12">
                                         <StackPanel Spacing="6">
-                                            <TextBlock Text="规则详情"
+                                            <TextBlock Text="{DynamicResource Label.RuleDetails}"
                                                        FontSize="16"
                                                        FontWeight="SemiBold"
                                                        Foreground="#1F2433" />
-                                            <TextBlock Text="填写进程名（必填）、可选窗口标题及 Prompt 内容"
+                                            <TextBlock Text="{DynamicResource Label.RuleDetailsHint}"
                                                        FontSize="12"
                                                        Foreground="#7A8199" />
                                         </StackPanel>
@@ -355,21 +390,21 @@
                                               RowDefinitions="Auto,Auto,Auto,Auto"
                                               RowSpacing="12"
                                               ColumnSpacing="12">
-                                            <TextBlock Grid.Row="0" Grid.Column="0" VerticalAlignment="Center" Text="进程名称（必填）" />
+                                            <TextBlock Grid.Row="0" Grid.Column="0" VerticalAlignment="Center" Text="{DynamicResource Label.ProcessName}" />
                                             <TextBox Grid.Row="0"
                                                      Grid.Column="1"
                                                      Text="{Binding SelectedPromptRule.ProcessName, UpdateSourceTrigger=PropertyChanged}"
-                                                     Watermark="例如：chrome 或 chrome.exe"
+                                                     Watermark="{DynamicResource Watermark.ProcessName}"
                                                      IsEnabled="{Binding HasSelectedPromptRule}" />
 
-                                            <TextBlock Grid.Row="1" Grid.Column="0" VerticalAlignment="Center" Text="窗口标题" />
+                                            <TextBlock Grid.Row="1" Grid.Column="0" VerticalAlignment="Center" Text="{DynamicResource Label.WindowTitle}" />
                                             <TextBox Grid.Row="1"
                                                      Grid.Column="1"
                                                      Text="{Binding SelectedPromptRule.WindowTitle, UpdateSourceTrigger=PropertyChanged}"
-                                                     Watermark="可选：支持包含匹配"
+                                                     Watermark="{DynamicResource Watermark.WindowTitle}"
                                                      IsEnabled="{Binding HasSelectedPromptRule}" />
 
-                                            <TextBlock Grid.Row="2" Grid.Column="0" VerticalAlignment="Center" Text="Prompt（必填）" />
+                                            <TextBlock Grid.Row="2" Grid.Column="0" VerticalAlignment="Center" Text="{DynamicResource Label.Prompt}" />
                                             <TextBox Grid.Row="2"
                                                      Grid.Column="1"
                                                      AcceptsReturn="True"
@@ -380,7 +415,7 @@
 
                                             <Button Grid.Row="3"
                                                     Grid.Column="1"
-                                                    Content="保存规则"
+                                                    Content="{DynamicResource Button.SaveRule}"
                                                     Command="{Binding SavePromptRulesCommand}"
                                                     Background="#4C6EF5"
                                                     Foreground="White"
@@ -395,7 +430,7 @@
                                                 CornerRadius="10"
                                                 Padding="16"
                                                 IsVisible="{Binding NoPromptRuleSelected}">
-                                            <TextBlock Text="从左侧新增或选择一条规则即可开始编辑。"
+                                            <TextBlock Text="{DynamicResource Rule.EmptyHint}"
                                                        FontSize="13"
                                                        Foreground="#5C6480" />
                                         </Border>

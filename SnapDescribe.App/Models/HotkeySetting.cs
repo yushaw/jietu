@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Text.Json.Serialization;
+using SnapDescribe.App.Services;
 
 namespace SnapDescribe.App.Models;
 
@@ -38,7 +39,9 @@ public class HotkeySetting
     public string Shortcut { get; set; } = string.Empty;
 
     [JsonIgnore]
-    public string DisplayText => string.IsNullOrWhiteSpace(Shortcut) ? "未绑定" : Shortcut;
+    public string DisplayText => string.IsNullOrWhiteSpace(Shortcut)
+        ? LocalizationService.Instance?.GetString("Hotkey.Unbound") ?? "Unassigned"
+        : Shortcut;
 
     public static HotkeySetting ParseOrDefault(string shortcut) => new(shortcut);
 

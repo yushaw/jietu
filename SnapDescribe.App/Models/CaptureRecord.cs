@@ -2,6 +2,7 @@ using System;
 using System.Collections.ObjectModel;
 using Avalonia.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
+using SnapDescribe.App.Services;
 
 namespace SnapDescribe.App.Models;
 
@@ -43,17 +44,24 @@ public partial class CaptureRecord : ObservableObject
             var hasProcess = !string.IsNullOrWhiteSpace(ProcessName);
             var hasWindow = !string.IsNullOrWhiteSpace(WindowTitle);
 
+            var localization = LocalizationService.Instance;
+
             if (!hasProcess && !hasWindow)
             {
-                return "上下文未知";
+                return localization?.GetString("History.Empty") ?? "Unknown context";
             }
 
             if (hasProcess && hasWindow)
             {
-                return $"{ProcessName} · {WindowTitle}";
-            }
+            return localization?.GetString("History.ProcessAndWindow", ProcessName ?? string.Empty, WindowTitle ?? string.Empty)
+                       ?? $"{ProcessName} · {WindowTitle}";
+        }
 
-            return hasProcess ? ProcessName! : WindowTitle!;
+        return hasProcess
+                ? localization?.GetString("History.ProcessOnly", ProcessName ?? string.Empty) ?? ProcessName!
+                : localization?.GetString("History.WindowOnly", WindowTitle ?? string.Empty) ?? WindowTitle!;
         }
     }
+
+    public void RefreshDisplayContext() => OnPropertyChanged(nameof(DisplayContext));
 }

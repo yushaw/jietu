@@ -5,6 +5,7 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using SnapDescribe.App.Models;
+using SnapDescribe.App.Services;
 
 namespace SnapDescribe.App.Views;
 
@@ -12,11 +13,13 @@ public partial class ResultDialog : Window
 {
     private readonly CaptureRecord? _record;
     private readonly Func<CaptureRecord, string, Task>? _continueChat;
+    private readonly LocalizationService _localization;
 
     public ResultDialog()
     {
         InitializeComponent();
         _record = null;
+        _localization = LocalizationService.Instance;
     }
 
     public ResultDialog(CaptureRecord record, Func<CaptureRecord, string, Task>? continueChat) : this()
@@ -27,7 +30,7 @@ public partial class ResultDialog : Window
 
         PreviewImage.Source = record.Preview;
         TitleText.Text = record.DisplayTitle;
-        SubTitleText.Text = $"生成于 {record.CapturedAt:yyyy-MM-dd HH:mm:ss}";
+        UpdateLocalizedTexts();
 
         SendButton.Click += OnSendClicked;
         ChatInput.KeyDown += ChatInputOnKeyDown;
@@ -35,6 +38,7 @@ public partial class ResultDialog : Window
 
         UpdateLoadingState();
         _record.PropertyChanged += OnRecordPropertyChanged;
+        _localization.LanguageChanged += LocalizationOnLanguageChanged;
 
         if (!_record.IsLoading)
         {
@@ -84,6 +88,11 @@ public partial class ResultDialog : Window
         {
             UpdateLoadingState();
         }
+
+        if (e.PropertyName == nameof(CaptureRecord.ProcessName) || e.PropertyName == nameof(CaptureRecord.WindowTitle))
+        {
+            UpdateLocalizedTexts();
+        }
     }
 
     private void UpdateLoadingState()
@@ -107,5 +116,28 @@ public partial class ResultDialog : Window
         {
             _record.PropertyChanged -= OnRecordPropertyChanged;
         }
+
+        _localization.LanguageChanged -= LocalizationOnLanguageChanged;
+    }
+
+    private void UpdateLocalizedTexts()
+    {
+        if (_record is null)
+        {
+            return;
+        }
+
+        SubTitleText.Text = $"{_localization.GetString("Dialog.GeneratedAt")} {_record.CapturedAt:yyyy-MM-dd HH:mm:ss}";
+        WindowTitleValue.Text = string.IsNullOrWhiteSpace(_record.WindowTitle)
+            ? _localization.GetString("Dialog.WindowTitleMissing")
+            : _record.WindowTitle;
+        ProcessNameValue.Text = string.IsNullOrWhiteSpace(_record.ProcessName)
+            ? _localization.GetString("Dialog.ProcessNameMissing")
+            : _record.ProcessName;
+    }
+
+    private void LocalizationOnLanguageChanged(object? sender, EventArgs e)
+    {
+        UpdateLocalizedTexts();
     }
 }

@@ -21,16 +21,21 @@ public partial class MainWindowViewModel : ObservableObject
     private readonly SettingsService _settingsService;
     private readonly IAiClient _aiClient;
     private readonly GlobalHotkeyService _hotkeyService;
+    private readonly LocalizationService _localization;
     private readonly RelayCommand _removePromptRuleCommand;
     private readonly RelayCommand _movePromptRuleUpCommand;
     private readonly RelayCommand _movePromptRuleDownCommand;
     private readonly RelayCommand _savePromptRulesCommand;
+    private string? _lastStatusResourceKey;
+    private object[] _lastStatusArgs = Array.Empty<object>();
+    private readonly DispatcherTimer _statusTimer;
 
     private bool _hotkeysRegistered;
     private int _captureHotkeyId = -1;
     private PromptRule? _subscribedPromptRule;
 
     public event EventHandler<CaptureRecord>? CaptureCompleted;
+    public event EventHandler<bool>? RequestMainWindowVisibility;
 
     [ObservableProperty]
     private CaptureRecord? selectedRecord;
@@ -45,7 +50,7 @@ public partial class MainWindowViewModel : ObservableObject
     private bool isBusy;
 
     [ObservableProperty]
-    private string statusMessage = "准备就绪";
+    private string statusMessage = string.Empty;
 
     [ObservableProperty]
     private PromptRule? selectedPromptRule;
@@ -53,16 +58,28 @@ public partial class MainWindowViewModel : ObservableObject
     [ObservableProperty]
     private bool canSavePromptRule;
 
+    public bool HasStatusMessage => !string.IsNullOrWhiteSpace(StatusMessage);
+
     public MainWindowViewModel(
         IScreenshotService screenshotService,
         SettingsService settingsService,
         IAiClient aiClient,
-        GlobalHotkeyService hotkeyService)
+        GlobalHotkeyService hotkeyService,
+        LocalizationService localizationService)
     {
         _screenshotService = screenshotService;
         _settingsService = settingsService;
         _aiClient = aiClient;
         _hotkeyService = hotkeyService;
+        _localization = localizationService;
+        _statusTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(4) };
+        _statusTimer.Tick += (_, _) =>
+        {
+                _statusTimer.Stop();
+                StatusMessage = string.Empty;
+                _lastStatusResourceKey = null;
+                _lastStatusArgs = Array.Empty<object>();
+        };
 
         CaptureCommand = new AsyncRelayCommand(CaptureInteractiveAsync, () => !IsBusy);
         SaveSettingsCommand = new RelayCommand(SaveSettings);
@@ -83,6 +100,10 @@ public partial class MainWindowViewModel : ObservableObject
         EnsureSelectedPromptRule();
         UpdatePromptRuleCommandStates();
         UpdatePromptRuleValidation();
+
+        StatusMessage = _localization.GetString("Status.Ready");
+        _lastStatusResourceKey = "Status.Ready";
+        _localization.LanguageChanged += (_, _) => OnLanguageChanged();
     }
 
     public ObservableCollection<CaptureRecord> History { get; }
@@ -126,6 +147,11 @@ public partial class MainWindowViewModel : ObservableObject
         UpdatePromptRuleValidation();
     }
 
+    partial void OnStatusMessageChanged(string value)
+    {
+        OnPropertyChanged(nameof(HasStatusMessage));
+    }
+
     partial void OnIsBusyChanged(bool value)
     {
         CaptureCommand.NotifyCanExecuteChanged();
@@ -148,12 +174,12 @@ public partial class MainWindowViewModel : ObservableObject
             }
             else
             {
-                SetStatus("全局快捷键不可用，已忽略。");
+                SetStatusFromResource("Status.HotkeyUnavailable");
             }
         }
         catch (Exception ex)
         {
-            DiagnosticLogger.Log("注册全局快捷键失败", ex);
+            DiagnosticLogger.Log("Failed to register global hotkey", ex);
             SetStatus(ex.Message);
         }
     }
@@ -166,7 +192,7 @@ public partial class MainWindowViewModel : ObservableObject
         InitializeHotkeys();
         _settingsService.Save();
         OnPropertyChanged(nameof(Settings));
-        SetStatus("快捷键已更新。");
+        SetStatusFromResource("Status.HotkeyUpdated");
     }
 
     private async void HandleHotkeyPressed(object? sender, HotkeyEventArgs e)
@@ -179,17 +205,23 @@ public partial class MainWindowViewModel : ObservableObject
 
     private async Task CaptureInteractiveAsync()
     {
-        if (!BeginOperation("正在准备截图..."))
+        if (!BeginOperationWithResource("Status.PreparingCapture"))
         {
             return;
         }
 
+        var requestedHide = false;
         try
         {
+            RequestMainWindowVisibility?.Invoke(this, false);
+            requestedHide = true;
+
+            await Task.Delay(200);
+
             var result = await _screenshotService.CaptureInteractiveAsync();
             if (result is null)
             {
-                SetStatus("截图已取消。");
+                SetStatusFromResource("Status.CaptureCancelled");
                 return;
             }
 
@@ -197,11 +229,16 @@ public partial class MainWindowViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            DiagnosticLogger.Log("执行截图流程时发生异常", ex);
-            SetStatus($"截图失败：{ex.Message}");
+            DiagnosticLogger.Log("An exception occurred during the capture workflow", ex);
+            SetStatusFromResource("Status.CaptureFailed", ex.Message);
         }
         finally
         {
+            if (requestedHide)
+            {
+                RequestMainWindowVisibility?.Invoke(this, true);
+            }
+
             EndOperation();
         }
     }
@@ -229,14 +266,14 @@ public partial class MainWindowViewModel : ObservableObject
             ProcessName = result.ProcessName,
             WindowTitle = result.WindowTitle,
             Preview = result.Preview,
-            ResponseMarkdown = "模型正在生成回复...",
+            ResponseMarkdown = _localization.GetString("Response.Generating"),
             IsLoading = true,
             ImageBytes = result.PngBytes
         };
 
         record.Conversation.Add(new ChatMessage("user", prompt, includeImage: true));
 
-        SetStatus("正在向模型请求描述...");
+        SetStatusFromResource("Status.RequestingModel", autoClear: false);
 
         await Dispatcher.UIThread.InvokeAsync(() =>
         {
@@ -261,8 +298,8 @@ public partial class MainWindowViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            DiagnosticLogger.Log("调用模型生成描述失败", ex);
-            var failure = SanitizeResponse($"模型调用失败：{ex.Message}");
+            DiagnosticLogger.Log("Model invocation failed while generating description", ex);
+            var failure = SanitizeResponse(_localization.GetString("Status.ModelInvokeFailed", ex.Message));
             await Dispatcher.UIThread.InvokeAsync(() =>
             {
                 record.ResponseMarkdown = failure;
@@ -272,8 +309,11 @@ public partial class MainWindowViewModel : ObservableObject
         }
         finally
         {
-            await Dispatcher.UIThread.InvokeAsync(() => record.IsLoading = false);
-            SetStatus(success ? "完成。" : "生成失败");
+        await Dispatcher.UIThread.InvokeAsync(() => record.IsLoading = false);
+        if (success)
+        {
+            SetStatusFromResource("Status.Completed");
+        }
         }
     }
 
@@ -290,7 +330,7 @@ public partial class MainWindowViewModel : ObservableObject
         {
             record.Conversation.Add(new ChatMessage("user", userMessage));
             record.IsLoading = true;
-            SetStatus("正在向模型请求描述...");
+            SetStatusFromResource("Status.RequestingModel", autoClear: false);
         });
 
         if (record.ImageBytes is null or { Length: 0 })
@@ -303,7 +343,7 @@ public partial class MainWindowViewModel : ObservableObject
             }
             catch (Exception ex)
             {
-                DiagnosticLogger.Log("重新加载截图文件失败", ex);
+                DiagnosticLogger.Log("Failed to reload screenshot file", ex);
             }
         }
 
@@ -316,7 +356,7 @@ public partial class MainWindowViewModel : ObservableObject
             var imageBytes = record.ImageBytes;
             if (imageBytes is null || imageBytes.Length == 0)
             {
-                throw new InvalidOperationException("无法读取截图数据。");
+                throw new InvalidOperationException(_localization.GetString("Error.MissingImageData"));
             }
 
             response = await _aiClient.ChatAsync(Settings, imageBytes, conversationSnapshot);
@@ -325,8 +365,8 @@ public partial class MainWindowViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            DiagnosticLogger.Log("继续对话失败", ex);
-            response = SanitizeResponse($"模型调用失败：{ex.Message}");
+            DiagnosticLogger.Log("Continuing the conversation failed", ex);
+            response = SanitizeResponse(_localization.GetString("Status.ModelInvokeFailed", ex.Message));
         }
 
         await Dispatcher.UIThread.InvokeAsync(() =>
@@ -334,7 +374,10 @@ public partial class MainWindowViewModel : ObservableObject
             record.Conversation.Add(new ChatMessage("assistant", response));
             record.ResponseMarkdown = response;
             record.IsLoading = false;
-            SetStatus(success ? "完成。" : "生成失败");
+            if (success)
+            {
+                SetStatusFromResource("Status.Completed");
+            }
         });
 
         try
@@ -343,7 +386,7 @@ public partial class MainWindowViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            DiagnosticLogger.Log("写入会话 Markdown 失败", ex);
+            DiagnosticLogger.Log("Failed to write conversation markdown", ex);
         }
     }
 
@@ -376,7 +419,7 @@ public partial class MainWindowViewModel : ObservableObject
 
         Settings.PromptRules.Add(rule);
         SelectedPromptRule = rule;
-        SetStatus("已新增规则，请填写必填字段后保存。");
+        SetStatusFromResource("Status.RuleAdded");
     }
 
     private void RemoveSelectedPromptRule()
@@ -441,8 +484,15 @@ public partial class MainWindowViewModel : ObservableObject
         }
 
         var newIndex = index + offset;
+        var rule = SelectedPromptRule;
         Settings.PromptRules.Move(index, newIndex);
         PersistPromptRules();
+
+        if (rule is not null)
+        {
+            SelectedPromptRule = null;
+            SelectedPromptRule = rule;
+        }
     }
 
     private void UpdatePromptRuleCommandStates()
@@ -457,7 +507,7 @@ public partial class MainWindowViewModel : ObservableObject
     {
         if (!CanSavePromptRules())
         {
-            SetStatus("请先填写必填字段。");
+            SetStatusFromResource("Status.FillRequired");
             return;
         }
 
@@ -469,11 +519,11 @@ public partial class MainWindowViewModel : ObservableObject
         try
         {
             _settingsService.Save();
-            SetStatus("Prompt 模板已保存。");
+            SetStatusFromResource("Status.PromptSaved");
         }
         catch (Exception ex)
         {
-            SetStatus($"保存 Prompt 模板时出错：{ex.Message}");
+            SetStatusFromResource("Status.PromptSaveFailed", ex.Message);
         }
     }
 
@@ -614,7 +664,7 @@ public partial class MainWindowViewModel : ObservableObject
     private string BuildConversationMarkdown(CaptureRecord record)
     {
         var builder = new StringBuilder();
-        builder.AppendLine("# 模型对话");
+        builder.AppendLine(_localization.GetString("Markdown.ConversationTitle"));
         builder.AppendLine();
         foreach (var message in record.Conversation)
         {
@@ -625,17 +675,17 @@ public partial class MainWindowViewModel : ObservableObject
             builder.AppendLine();
         }
         builder.AppendLine("---");
-        builder.AppendLine($"- 截图文件：`{Path.GetFileName(record.ImagePath)}`");
-        builder.AppendLine($"- 生成时间：{record.CapturedAt:yyyy-MM-dd HH:mm:ss}");
+        builder.AppendLine(_localization.GetString("Markdown.ScreenshotFile", Path.GetFileName(record.ImagePath)));
+        builder.AppendLine(_localization.GetString("Markdown.GeneratedAt", record.CapturedAt));
         if (!string.IsNullOrWhiteSpace(record.ProcessName))
         {
-            builder.AppendLine($"- 进程：{record.ProcessName}");
+            builder.AppendLine(_localization.GetString("Markdown.Process", record.ProcessName));
         }
         if (!string.IsNullOrWhiteSpace(record.WindowTitle))
         {
-            builder.AppendLine($"- 窗口标题：{record.WindowTitle}");
+            builder.AppendLine(_localization.GetString("Markdown.WindowTitle", record.WindowTitle));
         }
-        builder.AppendLine($"- 使用 Prompt：{record.Prompt}");
+        builder.AppendLine(_localization.GetString("Markdown.PromptUsed", record.Prompt));
         return builder.ToString();
     }
 
@@ -661,7 +711,7 @@ public partial class MainWindowViewModel : ObservableObject
         }
 
         SetBusy(true);
-        SetStatus(message);
+        SetStatus(message, autoClear: false);
         return true;
     }
 
@@ -674,15 +724,15 @@ public partial class MainWindowViewModel : ObservableObject
         try
         {
             _settingsService.Save();
-            SetStatus("设置已保存。");
+            SetStatusFromResource("Status.SettingsSaved");
         }
         catch (Exception ex)
         {
-            SetStatus($"保存设置时出错：{ex.Message}");
+            SetStatusFromResource("Status.SettingsSaveFailed", ex.Message);
         }
     }
 
-    private void SetStatus(string message)
+    private void SetStatus(string message, bool autoClear = true)
     {
         if (Dispatcher.UIThread.CheckAccess())
         {
@@ -691,6 +741,24 @@ public partial class MainWindowViewModel : ObservableObject
         else
         {
             Dispatcher.UIThread.Post(() => StatusMessage = message);
+        }
+
+        var shouldClear = string.IsNullOrWhiteSpace(message);
+
+        if (!autoClear || shouldClear)
+        {
+            _statusTimer.Stop();
+        }
+        else
+        {
+            _statusTimer.Stop();
+            _statusTimer.Start();
+        }
+
+        if (shouldClear)
+        {
+            _lastStatusResourceKey = null;
+            _lastStatusArgs = Array.Empty<object>();
         }
     }
 
@@ -703,6 +771,80 @@ public partial class MainWindowViewModel : ObservableObject
         else
         {
             Dispatcher.UIThread.Post(() => IsBusy = value);
+        }
+    }
+
+    private void SetStatusFromResource(string key, params object[] args) => SetStatusFromResourceInternal(key, true, args);
+
+    private void SetStatusFromResource(string key, bool autoClear, params object[] args) => SetStatusFromResourceInternal(key, autoClear, args);
+
+    private void SetStatusFromResourceInternal(string key, bool autoClear, params object[] args)
+    {
+        var message = _localization.GetString(key, args);
+        SetStatus(message, autoClear);
+        if (autoClear)
+        {
+            _lastStatusResourceKey = null;
+            _lastStatusArgs = Array.Empty<object>();
+        }
+        else
+        {
+            RememberStatus(key, args);
+        }
+    }
+
+    private bool BeginOperationWithResource(string key, params object[] args)
+    {
+        var message = _localization.GetString(key, args);
+        if (!BeginOperation(message))
+        {
+            return false;
+        }
+
+        RememberStatus(key, args);
+        return true;
+    }
+
+    private void RememberStatus(string key, params object[] args)
+    {
+        _lastStatusResourceKey = key;
+        _lastStatusArgs = args is { Length: > 0 } ? args.ToArray() : Array.Empty<object>();
+    }
+
+    private void OnLanguageChanged()
+    {
+        if (!string.IsNullOrWhiteSpace(_lastStatusResourceKey))
+        {
+            SetStatus(_localization.GetString(_lastStatusResourceKey, _lastStatusArgs), autoClear: false);
+        }
+
+        foreach (var record in History)
+        {
+            record.RefreshDisplayContext();
+        }
+    }
+
+    public void SetStatusMessage(string resourceKey, params object[] args) => SetStatusFromResource(resourceKey, args);
+
+    public void ChangeLanguage(string language)
+    {
+        if (string.IsNullOrWhiteSpace(language))
+        {
+            return;
+        }
+
+        var changed = !string.Equals(Settings.Language, language, StringComparison.OrdinalIgnoreCase);
+        if (changed)
+        {
+            Settings.Language = language;
+            _settingsService.Save();
+        }
+
+        _localization.ApplyLanguage(language);
+
+        if (changed)
+        {
+            SetStatusFromResource("Status.SettingsSaved");
         }
     }
 }

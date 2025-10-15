@@ -16,7 +16,7 @@ public class AppSettings
     public string Model { get; set; } = "glm-4.5v";
 
     public string DefaultPrompt { get; set; } =
-        "请用简洁的语言描述这张截图的关键信息，并给出一个可能的解答或操作建议。";
+        "Describe the key information shown in this screenshot and provide a concise answer or actionable suggestion.";
 
     public string OutputDirectory { get; set; } = DefaultOutputDirectory;
 
@@ -27,4 +27,6 @@ public class AppSettings
     public ObservableCollection<PromptRule> PromptRules { get; set; } = new();
 
     public bool HasSeededDefaultPromptRules { get; set; }
+
+    public string Language { get; set; } = "en-US";
 }
