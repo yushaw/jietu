@@ -49,6 +49,7 @@
   <x:String x:Key="Label.GeneratedAt">Generated at</x:String>
   <x:String x:Key="Label.BaseUrl">Base URL</x:String>
   <x:String x:Key="Label.ModelName">Model</x:String>
+  <x:String x:Key="Label.LaunchOnStartup">Launch on startup</x:String>
 
   <!-- Watermarks -->
   <x:String x:Key="Watermark.ProcessName">Example: chrome or chrome.exe</x:String>
@@ -75,6 +76,7 @@
   <x:String x:Key="Status.PromptSaveFailed">Failed to save prompt rules: {0}</x:String>
   <x:String x:Key="Status.SettingsSaved">Settings saved.</x:String>
   <x:String x:Key="Status.SettingsSaveFailed">Failed to save settings: {0}</x:String>
+  <x:String x:Key="Status.StartupUpdateFailed">Settings saved, but updating launch on startup failed: {0}</x:String>
   <x:String x:Key="Status.FolderPickerNotSupported">Folder picker is not supported on this platform.</x:String>
   <x:String x:Key="Status.ReadSelectedPathFailed">Unable to read the selected path.</x:String>
   <x:String x:Key="Status.OutputDirectoryUpdated">Output directory updated.</x:String>
@@ -122,4 +124,5 @@
   <x:String x:Key="ChatRole.Assistant">Assistant</x:String>
   <x:String x:Key="ChatRole.User">User</x:String>
   <x:String x:Key="ChatRole.System">System</x:String>
+  <x:String x:Key="Checkbox.Enable">Enable</x:String>
 </ResourceDictionary>

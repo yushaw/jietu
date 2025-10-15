@@ -49,6 +49,7 @@
   <x:String x:Key="Label.GeneratedAt">生成于</x:String>
   <x:String x:Key="Label.BaseUrl">Base URL</x:String>
   <x:String x:Key="Label.ModelName">模型名称</x:String>
+  <x:String x:Key="Label.LaunchOnStartup">开机启动</x:String>
 
   <!-- Watermarks -->
   <x:String x:Key="Watermark.ProcessName">例如：chrome 或 chrome.exe</x:String>
@@ -75,6 +76,7 @@
   <x:String x:Key="Status.PromptSaveFailed">保存 Prompt 模板时出错：{0}</x:String>
   <x:String x:Key="Status.SettingsSaved">设置已保存。</x:String>
   <x:String x:Key="Status.SettingsSaveFailed">保存设置时出错：{0}</x:String>
+  <x:String x:Key="Status.StartupUpdateFailed">已保存设置，但更新开机启动状态失败：{0}</x:String>
   <x:String x:Key="Status.FolderPickerNotSupported">当前平台不支持选择文件夹。</x:String>
   <x:String x:Key="Status.ReadSelectedPathFailed">未能读取所选路径。</x:String>
   <x:String x:Key="Status.OutputDirectoryUpdated">输出目录已更新。</x:String>
@@ -122,4 +124,5 @@
   <x:String x:Key="ChatRole.Assistant">模型</x:String>
   <x:String x:Key="ChatRole.User">用户</x:String>
   <x:String x:Key="ChatRole.System">系统</x:String>
+  <x:String x:Key="Checkbox.Enable">启用</x:String>
 </ResourceDictionary>

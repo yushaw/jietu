@@ -235,7 +235,7 @@
                                                        FontWeight="SemiBold"
                                                        Foreground="#1F2433" />
                                             <Grid ColumnDefinitions="160,*"
-                                                  RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto"
+                                                  RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto"
                                                   RowSpacing="12"
                                                   ColumnSpacing="12">
                                                 <TextBlock Grid.Row="0" Grid.Column="0" VerticalAlignment="Center" Text="{DynamicResource Label.DefaultPrompt}" />
@@ -289,7 +289,14 @@
                                                             Command="{Binding RefreshOutputFolderCommand}" />
                                                 </StackPanel>
 
-                                                <Button Grid.Row="5"
+                                                <TextBlock Grid.Row="5" Grid.Column="0" VerticalAlignment="Center" Text="{DynamicResource Label.LaunchOnStartup}" />
+                                                <CheckBox x:Name="LaunchOnStartupCheckBox"
+                                                          Grid.Row="5"
+                                                          Grid.Column="1"
+                                                          Content="{DynamicResource Checkbox.Enable}"
+                                                          IsChecked="{Binding Settings.LaunchOnStartup, Mode=TwoWay}" />
+
+                                                <Button Grid.Row="6"
                                                         Grid.Column="1"
                                                         Classes="primary"
                                                         Content="{DynamicResource Button.SaveSettings}"

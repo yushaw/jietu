@@ -24,6 +24,8 @@ public class AppSettings
 
     public int HistoryLimit { get; set; } = 30;
 
+    public bool LaunchOnStartup { get; set; }
+
     public ObservableCollection<PromptRule> PromptRules { get; set; } = new();
 
     public bool HasSeededDefaultPromptRules { get; set; }

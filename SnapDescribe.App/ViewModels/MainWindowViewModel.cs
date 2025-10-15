@@ -26,6 +26,7 @@ public partial class MainWindowViewModel : ObservableObject
     private readonly RelayCommand _movePromptRuleUpCommand;
     private readonly RelayCommand _movePromptRuleDownCommand;
     private readonly RelayCommand _savePromptRulesCommand;
+    private readonly StartupRegistrationService _startupService;
     private string? _lastStatusResourceKey;
     private object[] _lastStatusArgs = Array.Empty<object>();
     private readonly DispatcherTimer _statusTimer;
@@ -65,13 +66,15 @@ public partial class MainWindowViewModel : ObservableObject
         SettingsService settingsService,
         IAiClient aiClient,
         GlobalHotkeyService hotkeyService,
-        LocalizationService localizationService)
+        LocalizationService localizationService,
+        StartupRegistrationService startupRegistrationService)
     {
         _screenshotService = screenshotService;
         _settingsService = settingsService;
         _aiClient = aiClient;
         _hotkeyService = hotkeyService;
         _localization = localizationService;
+        _startupService = startupRegistrationService;
         _statusTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(4) };
         _statusTimer.Tick += (_, _) =>
         {
@@ -95,6 +98,19 @@ public partial class MainWindowViewModel : ObservableObject
         SavePromptRulesCommand = _savePromptRulesCommand;
 
         History = new ObservableCollection<CaptureRecord>();
+
+        try
+        {
+            var launchOnStartup = _startupService.IsEnabled();
+            if (Settings.LaunchOnStartup != launchOnStartup)
+            {
+                Settings.LaunchOnStartup = launchOnStartup;
+            }
+        }
+        catch (Exception ex)
+        {
+            DiagnosticLogger.Log("Failed to load launch-on-startup status.", ex);
+        }
 
         Settings.PromptRules.CollectionChanged += PromptRulesOnCollectionChanged;
         EnsureSelectedPromptRule();
@@ -721,15 +737,48 @@ public partial class MainWindowViewModel : ObservableObject
 
     private void SaveSettings()
     {
+        string? startupError = null;
+
+        try
+        {
+            _startupService.Apply(Settings.LaunchOnStartup);
+        }
+        catch (Exception ex)
+        {
+            DiagnosticLogger.Log("Failed to update launch-on-startup preference.", ex);
+            startupError = ex.Message;
+
+            try
+            {
+                var actualState = _startupService.IsEnabled();
+                if (Settings.LaunchOnStartup != actualState)
+                {
+                    Settings.LaunchOnStartup = actualState;
+                }
+            }
+            catch (Exception syncEx)
+            {
+                DiagnosticLogger.Log("Failed to synchronize launch-on-startup state after error.", syncEx);
+            }
+        }
+
         try
         {
             _settingsService.Save();
-            SetStatusFromResource("Status.SettingsSaved");
         }
         catch (Exception ex)
         {
             SetStatusFromResource("Status.SettingsSaveFailed", ex.Message);
+            return;
         }
+
+        if (startupError is not null)
+        {
+            SetStatusFromResource("Status.StartupUpdateFailed", startupError);
+            return;
+        }
+
+        SetStatusFromResource("Status.SettingsSaved");
     }
 
     private void SetStatus(string message, bool autoClear = true)

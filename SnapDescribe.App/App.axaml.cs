@@ -87,6 +87,7 @@ public partial class App : Application
         services.AddSingleton<IScreenshotService, ScreenshotService>();
         services.AddSingleton<IAiClient, GlmClient>();
         services.AddSingleton<GlobalHotkeyService>();
+        services.AddSingleton<StartupRegistrationService>();
         services.AddSingleton<MainWindowViewModel>();
         services.AddSingleton<MainWindow>();
 

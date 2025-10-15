@@ -2,7 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
+using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
@@ -317,6 +319,7 @@ public partial class MainWindow : Window
         AttachLostFocus("DefaultPromptTextBox");
         AttachLostFocus("OutputDirectoryTextBox");
         AttachLostFocus("HistoryLimitTextBox");
+        AttachToggle("LaunchOnStartupCheckBox");
     }
 
     private void UnregisterSettingsFieldHandlers()
@@ -327,6 +330,7 @@ public partial class MainWindow : Window
         DetachLostFocus("DefaultPromptTextBox");
         DetachLostFocus("OutputDirectoryTextBox");
         DetachLostFocus("HistoryLimitTextBox");
+        DetachToggle("LaunchOnStartupCheckBox");
     }
 
     private void AttachLostFocus(string name)
@@ -348,6 +352,30 @@ public partial class MainWindow : Window
     private void OnSettingsFieldLostFocus(object? sender, RoutedEventArgs e)
     {
         _viewModel?.SaveSettingsCommand.Execute(null);
+    }
+
+    private void AttachToggle(string name)
+    {
+        if (this.FindControl<CheckBox>(name) is { } checkBox)
+        {
+            checkBox.PropertyChanged += OnTogglePropertyChanged;
+        }
+    }
+
+    private void DetachToggle(string name)
+    {
+        if (this.FindControl<CheckBox>(name) is { } checkBox)
+        {
+            checkBox.PropertyChanged -= OnTogglePropertyChanged;
+        }
+    }
+
+    private void OnTogglePropertyChanged(object? sender, AvaloniaPropertyChangedEventArgs e)
+    {
+        if (e.Property == ToggleButton.IsCheckedProperty && !Equals(e.OldValue, e.NewValue))
+        {
+            _viewModel?.SaveSettingsCommand.Execute(null);
+        }
     }
 
     private void OnLanguageSelectionChanged(object? sender, SelectionChangedEventArgs e)
