@@ -186,7 +186,7 @@ public partial class MainWindow : Window
 
     private async Task OpenResultDialogAsync(CaptureRecord record)
     {
-        var continueHandler = _viewModel is null
+        var continueHandler = _viewModel is null || !record.SupportsChat
             ? null
             : new Func<CaptureRecord, string, Task>(_viewModel.ContinueConversationAsync);
 

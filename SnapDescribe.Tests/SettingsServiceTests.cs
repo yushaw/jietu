@@ -35,6 +35,8 @@ public sealed class SettingsServiceTests : IDisposable
         Assert.Equal("en-US", settings.Language);
         Assert.True(settings.HasSeededDefaultPromptRules);
         Assert.Contains(settings.PromptRules, rule => rule.ProcessName.Equals("chrome.exe", StringComparison.OrdinalIgnoreCase));
+        Assert.All(settings.PromptRules, rule => Assert.Equal(CapabilityIds.LanguageModel, rule.CapabilityId));
+        Assert.All(settings.PromptRules, rule => Assert.NotNull(rule.Parameters));
 
         var expectedOutputDirectory = Path.Combine(_pictures, "SnapDescribe");
         Assert.True(Directory.Exists(expectedOutputDirectory));

@@ -32,6 +32,7 @@ public partial class MainWindowViewModel : ObservableObject
     private readonly RelayCommand _movePromptRuleDownCommand;
     private readonly RelayCommand _savePromptRulesCommand;
     private readonly StartupRegistrationService _startupService;
+    private readonly CapabilityResolver _capabilityResolver;
     private string? _lastStatusResourceKey;
     private object[] _lastStatusArgs = Array.Empty<object>();
     private readonly DispatcherTimer _statusTimer;
@@ -79,7 +80,8 @@ public partial class MainWindowViewModel : ObservableObject
         IAiClient aiClient,
         GlobalHotkeyService hotkeyService,
         LocalizationService localizationService,
-        StartupRegistrationService startupRegistrationService)
+        StartupRegistrationService startupRegistrationService,
+        CapabilityResolver capabilityResolver)
     {
         _screenshotService = screenshotService;
         _settingsService = settingsService;
@@ -87,6 +89,7 @@ public partial class MainWindowViewModel : ObservableObject
         _hotkeyService = hotkeyService;
         _localization = localizationService;
         _startupService = startupRegistrationService;
+        _capabilityResolver = capabilityResolver;
         _statusTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(4) };
         _statusTimer.Tick += (_, _) =>
         {
@@ -110,6 +113,8 @@ public partial class MainWindowViewModel : ObservableObject
         SavePromptRulesCommand = _savePromptRulesCommand;
 
         History = new ObservableCollection<CaptureRecord>();
+        CapabilityOptions = new ObservableCollection<CapabilityOption>();
+        RefreshCapabilityOptions();
 
         try
         {
@@ -136,7 +141,41 @@ public partial class MainWindowViewModel : ObservableObject
 
     public ObservableCollection<CaptureRecord> History { get; }
 
+    public ObservableCollection<CapabilityOption> CapabilityOptions { get; }
+
     public AppSettings Settings => _settingsService.Current;
+
+    public CapabilityOption? SelectedCapabilityOption
+    {
+        get
+        {
+            if (SelectedPromptRule is null)
+            {
+                return null;
+            }
+
+            return CapabilityOptions.FirstOrDefault(option => string.Equals(option.Id, SelectedPromptRule.CapabilityId, StringComparison.OrdinalIgnoreCase));
+        }
+        set
+        {
+            if (SelectedPromptRule is null || value is null)
+            {
+                return;
+            }
+
+            if (!string.Equals(SelectedPromptRule.CapabilityId, value.Id, StringComparison.OrdinalIgnoreCase))
+            {
+                SelectedPromptRule.CapabilityId = value.Id;
+            }
+        }
+    }
+
+    public bool SelectedCapabilityIsAvailable => SelectedCapabilityOption?.IsAvailable ?? false;
+
+    public bool IsSelectedCapabilityLanguageModel => SelectedPromptRule is not null
+        && string.Equals(SelectedPromptRule.CapabilityId, CapabilityIds.LanguageModel, StringComparison.OrdinalIgnoreCase);
+
+    public bool ShowCapabilityPlaceholder => SelectedPromptRule is not null && !SelectedCapabilityIsAvailable;
 
     public IAsyncRelayCommand CaptureCommand { get; }
 
@@ -172,6 +211,10 @@ public partial class MainWindowViewModel : ObservableObject
         UpdatePromptRuleCommandStates();
         OnPropertyChanged(nameof(HasSelectedPromptRule));
         OnPropertyChanged(nameof(NoPromptRuleSelected));
+        OnPropertyChanged(nameof(SelectedCapabilityOption));
+        OnPropertyChanged(nameof(SelectedCapabilityIsAvailable));
+        OnPropertyChanged(nameof(IsSelectedCapabilityLanguageModel));
+        OnPropertyChanged(nameof(ShowCapabilityPlaceholder));
         UpdatePromptRuleValidation();
     }
 
@@ -343,25 +386,38 @@ public partial class MainWindowViewModel : ObservableObject
 
         await File.WriteAllBytesAsync(imagePath, result.PngBytes);
 
-        var prompt = ResolvePrompt(result.ProcessName, result.WindowTitle);
+        var plan = _capabilityResolver.Resolve(Settings, result.ProcessName, result.WindowTitle);
+        var prompt = plan.GetParameter("prompt") ?? Settings.DefaultPrompt;
+        var isLanguageModel = string.Equals(plan.CapabilityId, CapabilityIds.LanguageModel, StringComparison.OrdinalIgnoreCase);
+        var initialResponse = isLanguageModel
+            ? _localization.GetString("Response.Generating")
+            : _localization.GetString("Response.CapabilityPending");
+
         var record = new CaptureRecord
         {
             Id = baseName,
             ImagePath = imagePath,
             MarkdownPath = markdownPath,
             CapturedAt = timestamp,
+            CapabilityId = plan.CapabilityId,
             Prompt = prompt,
             ProcessName = result.ProcessName,
             WindowTitle = result.WindowTitle,
             Preview = result.Preview,
-            ResponseMarkdown = _localization.GetString("Response.Generating"),
-            IsLoading = true,
+            ResponseMarkdown = initialResponse,
+            IsLoading = isLanguageModel,
             ImageBytes = result.PngBytes
         };
 
-        record.Conversation.Add(new ChatMessage("user", prompt, includeImage: true));
-
-        SetStatusFromResource("Status.RequestingModel", autoClear: false);
+        if (isLanguageModel)
+        {
+            record.Conversation.Add(new ChatMessage("user", prompt, includeImage: true));
+            SetStatusFromResource("Status.RequestingModel", autoClear: false);
+        }
+        else
+        {
+            SetStatusFromResource("Status.CapabilityPending");
+        }
 
         await Dispatcher.UIThread.InvokeAsync(() =>
         {
@@ -371,10 +427,23 @@ public partial class MainWindowViewModel : ObservableObject
             CaptureCompleted?.Invoke(this, record);
         });
 
+        if (isLanguageModel)
+        {
+            await ExecuteLanguageModelCapabilityAsync(record, markdownPath);
+        }
+        else
+        {
+            await Dispatcher.UIThread.InvokeAsync(() => record.IsLoading = false);
+            await SaveRecordMetadataAsync(record);
+        }
+    }
+
+    private async Task ExecuteLanguageModelCapabilityAsync(CaptureRecord record, string markdownPath)
+    {
         var success = false;
         try
         {
-            var response = await _aiClient.DescribeAsync(Settings, result.PngBytes, prompt);
+            var response = await _aiClient.DescribeAsync(Settings, record.ImageBytes, record.Prompt);
             var sanitized = SanitizeResponse(response);
             await Dispatcher.UIThread.InvokeAsync(() =>
             {
@@ -409,6 +478,11 @@ public partial class MainWindowViewModel : ObservableObject
 
     public async Task ContinueConversationAsync(CaptureRecord record, string userMessage)
     {
+        if (record is null || !record.SupportsChat)
+        {
+            return;
+        }
+
         if (string.IsNullOrWhiteSpace(userMessage) || record.IsLoading)
         {
             return;
@@ -595,6 +669,27 @@ public partial class MainWindowViewModel : ObservableObject
         _savePromptRulesCommand.NotifyCanExecuteChanged();
     }
 
+    private void RefreshCapabilityOptions()
+    {
+        var options = new List<CapabilityOption>
+        {
+            new CapabilityOption(CapabilityIds.LanguageModel, _localization.GetString("Capability.LanguageModel"), isAvailable: true),
+            new CapabilityOption(CapabilityIds.ExternalTool, _localization.GetString("Capability.ExternalTool"), isAvailable: false),
+            new CapabilityOption(CapabilityIds.Ocr, _localization.GetString("Capability.Ocr"), isAvailable: false)
+        };
+
+        CapabilityOptions.Clear();
+        foreach (var option in options)
+        {
+            CapabilityOptions.Add(option);
+        }
+
+        OnPropertyChanged(nameof(SelectedCapabilityOption));
+        OnPropertyChanged(nameof(SelectedCapabilityIsAvailable));
+        OnPropertyChanged(nameof(IsSelectedCapabilityLanguageModel));
+        OnPropertyChanged(nameof(ShowCapabilityPlaceholder));
+    }
+
     private void SavePromptRules()
     {
         if (!CanSavePromptRules())
@@ -626,8 +721,13 @@ public partial class MainWindowViewModel : ObservableObject
             return false;
         }
 
-        return !string.IsNullOrWhiteSpace(SelectedPromptRule.ProcessName)
-               && !string.IsNullOrWhiteSpace(SelectedPromptRule.Prompt);
+        if (string.IsNullOrWhiteSpace(SelectedPromptRule.ProcessName))
+        {
+            return false;
+        }
+
+        return !string.Equals(SelectedPromptRule.CapabilityId, CapabilityIds.LanguageModel, StringComparison.OrdinalIgnoreCase)
+               || !string.IsNullOrWhiteSpace(SelectedPromptRule.Prompt);
     }
 
     private void UpdatePromptRuleValidation()
@@ -653,94 +753,18 @@ public partial class MainWindowViewModel : ObservableObject
 
     private void PromptRuleOnPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName is nameof(PromptRule.ProcessName) or nameof(PromptRule.Prompt))
+        if (e.PropertyName is nameof(PromptRule.ProcessName) or nameof(PromptRule.Prompt) or nameof(PromptRule.CapabilityId))
         {
             UpdatePromptRuleValidation();
         }
-    }
 
-    private string ResolvePrompt(string? processName, string? windowTitle)
-    {
-        if (Settings.PromptRules.Count == 0)
+        if (e.PropertyName == nameof(PromptRule.CapabilityId))
         {
-            return Settings.DefaultPrompt;
+            OnPropertyChanged(nameof(SelectedCapabilityOption));
+            OnPropertyChanged(nameof(SelectedCapabilityIsAvailable));
+            OnPropertyChanged(nameof(IsSelectedCapabilityLanguageModel));
+            OnPropertyChanged(nameof(ShowCapabilityPlaceholder));
         }
-
-        var normalizedProcess = Normalize(processName);
-        string? normalizedProcessWithExe = normalizedProcess;
-        if (!string.IsNullOrEmpty(normalizedProcess) && !normalizedProcess.EndsWith(".exe", StringComparison.Ordinal))
-        {
-            normalizedProcessWithExe = normalizedProcess + ".exe";
-        }
-
-        var normalizedTitle = Normalize(windowTitle);
-
-        foreach (var rule in Settings.PromptRules)
-        {
-            if (string.IsNullOrWhiteSpace(rule.Prompt) || string.IsNullOrWhiteSpace(rule.ProcessName))
-            {
-                continue;
-            }
-
-            var ruleProcess = Normalize(rule.ProcessName);
-            if (string.IsNullOrEmpty(ruleProcess))
-            {
-                continue;
-            }
-
-            if (!ContainsNormalized(normalizedProcess, normalizedProcessWithExe, ruleProcess))
-            {
-                continue;
-            }
-
-            if (!string.IsNullOrWhiteSpace(rule.WindowTitle))
-            {
-                var ruleTitle = Normalize(rule.WindowTitle);
-                if (string.IsNullOrEmpty(ruleTitle))
-                {
-                    continue;
-                }
-
-                if (!ContainsNormalized(normalizedTitle, null, ruleTitle))
-                {
-                    continue;
-                }
-            }
-
-            return rule.Prompt;
-        }
-
-        return Settings.DefaultPrompt;
-    }
-
-    private static string? Normalize(string? value)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            return null;
-        }
-
-        return value.Trim().ToLowerInvariant();
-    }
-
-    private static bool ContainsNormalized(string? source, string? altSource, string target)
-    {
-        if (string.IsNullOrEmpty(target))
-        {
-            return false;
-        }
-
-        if (!string.IsNullOrEmpty(source) && source.Contains(target, StringComparison.Ordinal))
-        {
-            return true;
-        }
-
-        if (!string.IsNullOrEmpty(altSource) && altSource.Contains(target, StringComparison.Ordinal))
-        {
-            return true;
-        }
-
-        return false;
     }
 
     private List<PersistedCapture> LoadPersistedCaptures(string directory, int limit, CancellationToken cancellationToken)
@@ -1051,12 +1075,17 @@ public partial class MainWindowViewModel : ObservableObject
             DiagnosticLogger.Log("Failed to create preview bitmap.", ex);
         }
 
+        var capabilityId = string.IsNullOrWhiteSpace(data.CapabilityId)
+            ? CapabilityIds.LanguageModel
+            : data.CapabilityId;
+
         var record = new CaptureRecord
         {
             Id = data.Id,
             ImagePath = data.ImagePath,
             MarkdownPath = data.MarkdownPath,
             CapturedAt = data.CapturedAt,
+            CapabilityId = capabilityId,
             Prompt = string.IsNullOrWhiteSpace(data.Prompt) ? Settings.DefaultPrompt : data.Prompt,
             ProcessName = string.IsNullOrWhiteSpace(data.ProcessName) ? null : data.ProcessName,
             WindowTitle = string.IsNullOrWhiteSpace(data.WindowTitle) ? null : data.WindowTitle,
@@ -1074,7 +1103,7 @@ public partial class MainWindowViewModel : ObservableObject
                 record.Conversation.Add(new ChatMessage(role, message.Content ?? string.Empty, message.IncludeImage));
             }
         }
-        else
+        else if (string.Equals(capabilityId, CapabilityIds.LanguageModel, StringComparison.OrdinalIgnoreCase))
         {
             var prompt = record.Prompt ?? Settings.DefaultPrompt;
             record.Conversation.Add(new ChatMessage("user", prompt, includeImage: true));
@@ -1097,6 +1126,7 @@ public partial class MainWindowViewModel : ObservableObject
                 ImagePath = record.ImagePath,
                 MarkdownPath = record.MarkdownPath,
                 CapturedAt = record.CapturedAt,
+                CapabilityId = record.CapabilityId,
                 Prompt = record.Prompt,
                 ProcessName = record.ProcessName,
                 WindowTitle = record.WindowTitle,
@@ -1330,6 +1360,8 @@ public partial class MainWindowViewModel : ObservableObject
         {
             record.RefreshDisplayContext();
         }
+
+        RefreshCapabilityOptions();
     }
 
     public void SetStatusMessage(string resourceKey, params object[] args) => SetStatusFromResource(resourceKey, args);
@@ -1362,6 +1394,7 @@ public partial class MainWindowViewModel : ObservableObject
         public string ImagePath { get; set; } = string.Empty;
         public string MarkdownPath { get; set; } = string.Empty;
         public DateTimeOffset CapturedAt { get; set; }
+        public string CapabilityId { get; set; } = CapabilityIds.LanguageModel;
         public string Prompt { get; set; } = string.Empty;
         public string? ProcessName { get; set; }
         public string? WindowTitle { get; set; }

@@ -373,7 +373,7 @@
 
                                         <Grid Grid.Row="1"
                                               ColumnDefinitions="160,*"
-                                              RowDefinitions="Auto,Auto,Auto,Auto"
+                                              RowDefinitions="Auto,Auto,Auto,Auto,Auto"
                                               RowSpacing="12"
                                               ColumnSpacing="12">
                                             <TextBlock Grid.Row="0" Grid.Column="0" VerticalAlignment="Center" Text="{DynamicResource Label.ProcessName}" />
@@ -390,16 +390,36 @@
                                                      Watermark="{DynamicResource Watermark.WindowTitle}"
                                                      IsEnabled="{Binding HasSelectedPromptRule}" />
 
-                                            <TextBlock Grid.Row="2" Grid.Column="0" VerticalAlignment="Center" Text="{DynamicResource Label.Prompt}" />
-                                            <TextBox Grid.Row="2"
+                                            <TextBlock Grid.Row="2" Grid.Column="0" VerticalAlignment="Center" Text="{DynamicResource Label.Capability}" />
+                                            <StackPanel Grid.Row="2"
+                                                        Grid.Column="1"
+                                                        Orientation="Vertical"
+                                                        Spacing="6">
+                                                <ComboBox ItemsSource="{Binding CapabilityOptions}"
+                                                          SelectedItem="{Binding SelectedCapabilityOption}"
+                                                          IsEnabled="{Binding HasSelectedPromptRule}">
+                                                    <ComboBox.ItemTemplate>
+                                                        <DataTemplate>
+                                                            <TextBlock Text="{Binding DisplayName}" />
+                                                        </DataTemplate>
+                                                    </ComboBox.ItemTemplate>
+                                                </ComboBox>
+                                                <TextBlock Text="{DynamicResource Capability.PlaceholderHint}"
+                                                           FontSize="12"
+                                                           Foreground="#7A8199"
+                                                           IsVisible="{Binding ShowCapabilityPlaceholder}" />
+                                            </StackPanel>
+
+                                            <TextBlock Grid.Row="3" Grid.Column="0" VerticalAlignment="Center" Text="{DynamicResource Label.Prompt}" />
+                                            <TextBox Grid.Row="3"
                                                      Grid.Column="1"
                                                      AcceptsReturn="True"
                                                      Height="160"
                                                      TextWrapping="Wrap"
                                                      Text="{Binding SelectedPromptRule.Prompt, UpdateSourceTrigger=PropertyChanged}"
-                                                     IsEnabled="{Binding HasSelectedPromptRule}" />
+                                                     IsEnabled="{Binding IsSelectedCapabilityLanguageModel}" />
 
-                                            <Button Grid.Row="3"
+                                            <Button Grid.Row="4"
                                                     Grid.Column="1"
                                                     Content="{DynamicResource Button.SaveRule}"
                                                     Command="{Binding SavePromptRulesCommand}"

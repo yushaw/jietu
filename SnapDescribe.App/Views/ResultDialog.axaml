@@ -128,7 +128,7 @@
                     </Border>
                 </Grid>
 
-                    <Grid Grid.Row="1" ColumnDefinitions="*,Auto" Background="#F8FAFF" Margin="0" Height="90">
+                    <Grid x:Name="ChatContainer" Grid.Row="1" ColumnDefinitions="*,Auto" Background="#F8FAFF" Margin="0" Height="90">
                         <TextBox x:Name="ChatInput"
                                  Grid.Column="0"
                                  Watermark="{DynamicResource Watermark.ChatInput}"

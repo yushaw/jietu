@@ -84,6 +84,7 @@ public partial class App : Application
         });
         services.AddSingleton<SettingsService>();
         services.AddSingleton<LocalizationService>();
+        services.AddSingleton<CapabilityResolver>();
         services.AddSingleton<IScreenshotService, ScreenshotService>();
         services.AddSingleton<IAiClient, GlmClient>();
         services.AddSingleton<GlobalHotkeyService>();

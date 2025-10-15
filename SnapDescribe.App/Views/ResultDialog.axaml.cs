@@ -14,33 +14,44 @@ public partial class ResultDialog : Window
     private readonly CaptureRecord? _record;
     private readonly Func<CaptureRecord, string, Task>? _continueChat;
     private readonly LocalizationService _localization;
+    private readonly bool _supportsChat;
 
     public ResultDialog()
     {
         InitializeComponent();
         _record = null;
         _localization = LocalizationService.Instance;
+        _supportsChat = false;
     }
 
     public ResultDialog(CaptureRecord record, Func<CaptureRecord, string, Task>? continueChat) : this()
     {
         _record = record;
         _continueChat = continueChat;
+        _supportsChat = continueChat is not null;
         DataContext = record;
 
         PreviewImage.Source = record.Preview;
         TitleText.Text = record.DisplayTitle;
         UpdateLocalizedTexts();
 
-        SendButton.Click += OnSendClicked;
-        ChatInput.KeyDown += ChatInputOnKeyDown;
+        if (_supportsChat)
+        {
+            SendButton.Click += OnSendClicked;
+            ChatInput.KeyDown += ChatInputOnKeyDown;
+        }
+        else
+        {
+            ChatContainer.IsVisible = false;
+        }
+
         Closed += OnClosed;
 
         UpdateLoadingState();
         _record.PropertyChanged += OnRecordPropertyChanged;
         _localization.LanguageChanged += LocalizationOnLanguageChanged;
 
-        if (!_record.IsLoading)
+        if (_supportsChat && !_record.IsLoading)
         {
             ChatInput.Focus();
         }
@@ -99,18 +110,30 @@ public partial class ResultDialog : Window
     {
         var isLoading = _record?.IsLoading ?? false;
         LoadingPanel.IsVisible = isLoading;
-        SendButton.IsEnabled = !isLoading;
-        ChatInput.IsEnabled = !isLoading;
-        if (!isLoading)
+
+        if (_supportsChat)
         {
-            ChatInput.Focus();
+            SendButton.IsEnabled = !isLoading;
+            ChatInput.IsEnabled = !isLoading;
+            if (!isLoading)
+            {
+                ChatInput.Focus();
+            }
+        }
+        else
+        {
+            SendButton.IsEnabled = false;
+            ChatInput.IsEnabled = false;
         }
     }
 
     private void OnClosed(object? sender, EventArgs e)
     {
-        SendButton.Click -= OnSendClicked;
-        ChatInput.KeyDown -= ChatInputOnKeyDown;
+        if (_supportsChat)
+        {
+            SendButton.Click -= OnSendClicked;
+            ChatInput.KeyDown -= ChatInputOnKeyDown;
+        }
 
         if (_record is not null)
         {

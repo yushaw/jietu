@@ -178,6 +178,16 @@ public class SettingsService
             {
                 rule.Id = Guid.NewGuid().ToString("N");
             }
+
+            if (string.IsNullOrWhiteSpace(rule.CapabilityId))
+            {
+                rule.CapabilityId = CapabilityIds.LanguageModel;
+            }
+
+            if (rule.Parameters is null)
+            {
+                rule.Parameters = new ObservableCollection<CapabilityParameter>();
+            }
         }
     }
 

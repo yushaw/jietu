@@ -8,7 +8,7 @@
   <x:String x:Key="Tab.Workbench">Workbench</x:String>
   <x:String x:Key="Tab.Settings">Settings</x:String>
   <x:String x:Key="Tab.BasicSettings">Basic Settings</x:String>
-  <x:String x:Key="Tab.PromptRules">Prompt Rules</x:String>
+  <x:String x:Key="Tab.PromptRules">Trigger Rules</x:String>
 
   <!-- Sections -->
   <x:String x:Key="Section.ApiConfig">API Configuration</x:String>
@@ -33,12 +33,13 @@
   <x:String x:Key="Label.HistorySubtitle">Recent screenshots and descriptions</x:String>
   <x:String x:Key="Label.PromptUsed">Prompt Used</x:String>
   <x:String x:Key="Label.RuleList">Rule List</x:String>
-  <x:String x:Key="Label.RuleListHint">Rules are evaluated in order. The first match overrides the default prompt.</x:String>
+  <x:String x:Key="Label.RuleListHint">Rules are evaluated in order. The first match selects a capability or overrides the default prompt.</x:String>
   <x:String x:Key="Label.RuleDetails">Rule Details</x:String>
-  <x:String x:Key="Label.RuleDetailsHint">Fill in the process name (required), optional window title, and prompt content.</x:String>
+  <x:String x:Key="Label.RuleDetailsHint">Fill in the process name (required), optional window title, choose a capability, and configure it.</x:String>
   <x:String x:Key="Label.ProcessName">Process Name (required)</x:String>
   <x:String x:Key="Label.WindowTitle">Window Title</x:String>
-  <x:String x:Key="Label.Prompt">Prompt (required)</x:String>
+  <x:String x:Key="Label.Capability">Capability</x:String>
+  <x:String x:Key="Label.Prompt">Prompt / Configuration</x:String>
   <x:String x:Key="Label.DefaultPrompt">Default Prompt</x:String>
   <x:String x:Key="Label.CaptureHotkey">Capture Hotkey</x:String>
   <x:String x:Key="Label.OutputDirectory">Output Directory</x:String>
@@ -70,10 +71,11 @@
   <x:String x:Key="Status.RequestingModel">Requesting model response...</x:String>
   <x:String x:Key="Status.Completed">Completed.</x:String>
   <x:String x:Key="Status.GenerateFailed">Generation failed.</x:String>
+  <x:String x:Key="Status.CapabilityPending">Capability assigned. Manage it from its dedicated interface.</x:String>
   <x:String x:Key="Status.RuleAdded">Rule added. Please complete required fields before saving.</x:String>
   <x:String x:Key="Status.FillRequired">Please complete the required fields first.</x:String>
-  <x:String x:Key="Status.PromptSaved">Prompt rules saved.</x:String>
-  <x:String x:Key="Status.PromptSaveFailed">Failed to save prompt rules: {0}</x:String>
+  <x:String x:Key="Status.PromptSaved">Trigger rules saved.</x:String>
+  <x:String x:Key="Status.PromptSaveFailed">Failed to save trigger rules: {0}</x:String>
   <x:String x:Key="Status.SettingsSaved">Settings saved.</x:String>
   <x:String x:Key="Status.SettingsSaveFailed">Failed to save settings: {0}</x:String>
   <x:String x:Key="Status.StartupUpdateFailed">Settings saved, but updating launch on startup failed: {0}</x:String>
@@ -84,6 +86,13 @@
 
   <!-- Response placeholders -->
   <x:String x:Key="Response.Generating">The model is generating a response...</x:String>
+  <x:String x:Key="Response.CapabilityPending">This capability will be handled in its dedicated interface soon.</x:String>
+
+  <!-- Capabilities -->
+  <x:String x:Key="Capability.LanguageModel">Language Model (default)</x:String>
+  <x:String x:Key="Capability.ExternalTool">External Tool (coming soon)</x:String>
+  <x:String x:Key="Capability.Ocr">OCR (coming soon)</x:String>
+  <x:String x:Key="Capability.PlaceholderHint">More capability options and settings will appear here in upcoming versions.</x:String>
 
   <!-- Errors -->
   <x:String x:Key="Error.MissingImageData">Unable to read screenshot data.</x:String>

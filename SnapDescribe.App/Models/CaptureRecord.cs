@@ -16,6 +16,8 @@ public partial class CaptureRecord : ObservableObject
 
     public required DateTimeOffset CapturedAt { get; init; }
 
+    public required string CapabilityId { get; init; }
+
     public required string Prompt { get; init; }
 
     public string? ProcessName { get; init; }
@@ -36,6 +38,8 @@ public partial class CaptureRecord : ObservableObject
     public byte[] ImageBytes { get; set; } = Array.Empty<byte>();
 
     public string DisplayTitle => $"{CapturedAt:HH:mm:ss} - {System.IO.Path.GetFileNameWithoutExtension(ImagePath)}";
+
+    public bool SupportsChat => string.Equals(CapabilityId, CapabilityIds.LanguageModel, StringComparison.OrdinalIgnoreCase);
 
     public string DisplayContext
     {
