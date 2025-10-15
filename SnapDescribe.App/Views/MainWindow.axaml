@@ -103,6 +103,11 @@
                                                             <TextBlock Text="{Binding DisplayTitle}"
                                                                        FontWeight="SemiBold"
                                                                        Foreground="#2E3554" />
+                                                            <TextBlock Text="{Binding DisplayContext}"
+                                                                       FontSize="12"
+                                                                       Foreground="#5C6480"
+                                                                       TextWrapping="Wrap"
+                                                                       Margin="0,4,0,0" />
                                                             <TextBlock Text="{Binding Prompt}"
                                                                        FontSize="12"
                                                                        Foreground="#7A8199"
@@ -121,6 +126,44 @@
                                                FontWeight="SemiBold"
                                                FontSize="16"
                                                Foreground="#1F2433" />
+                                    <TextBlock Text="{Binding SelectedRecord.DisplayContext}"
+                                               FontSize="12"
+                                               Foreground="#5C6480" />
+                                    <Border Background="#FFFFFF"
+                                            CornerRadius="10"
+                                            Padding="12"
+                                            BorderBrush="#E3E7F5"
+                                            BorderThickness="1">
+                                        <StackPanel Spacing="6">
+                                            <TextBlock Text="窗口标题"
+                                                       FontWeight="SemiBold"
+                                                       FontSize="13"
+                                                       Foreground="#1F2433" />
+                                            <TextBlock FontSize="12"
+                                                       Foreground="#2E3554"
+                                                       TextWrapping="Wrap">
+                                                <TextBlock.Text>
+                                                    <Binding Path="SelectedRecord.WindowTitle"
+                                                             TargetNullValue="未获取窗口标题"
+                                                             StringFormat="{}{0}" />
+                                                </TextBlock.Text>
+                                            </TextBlock>
+                                            <TextBlock Text="进程名称"
+                                                       FontWeight="SemiBold"
+                                                       FontSize="13"
+                                                       Foreground="#1F2433"
+                                                       Margin="0,8,0,0" />
+                                            <TextBlock FontSize="12"
+                                                       Foreground="#2E3554"
+                                                       TextWrapping="Wrap">
+                                                <TextBlock.Text>
+                                                    <Binding Path="SelectedRecord.ProcessName"
+                                                             TargetNullValue="未获取进程名称"
+                                                             StringFormat="{}{0}" />
+                                                </TextBlock.Text>
+                                            </TextBlock>
+                                        </StackPanel>
+                                    </Border>
                                     <Border Background="#F0F4FF"
                                             CornerRadius="10"
                                             Padding="12"
@@ -130,6 +173,22 @@
                                                HorizontalAlignment="Center"
                                                VerticalAlignment="Center" />
                                     </Border>
+                                    <Border Background="#FFFFFF"
+                                            CornerRadius="10"
+                                            Padding="12"
+                                            BorderBrush="#E3E7F5"
+                                            BorderThickness="1">
+                                        <StackPanel Spacing="6">
+                                            <TextBlock Text="使用 Prompt"
+                                                       FontWeight="SemiBold"
+                                                       FontSize="13"
+                                                       Foreground="#1F2433" />
+                                            <TextBlock Text="{Binding SelectedRecord.Prompt}"
+                                                       FontSize="12"
+                                                       Foreground="#2E3554"
+                                                       TextWrapping="Wrap" />
+                                        </StackPanel>
+                                    </Border>
                                 </StackPanel>
                             </Grid>
                         </Border>
@@ -137,110 +196,249 @@
                 </TabItem>
 
                 <TabItem Header="设置">
-                    <ScrollViewer Margin="0,6,0,0">
-                        <StackPanel Spacing="16">
-                            <Border Background="White"
-                                    CornerRadius="12"
-                                    Padding="20"
-                                    Classes="card">
-                                <StackPanel Spacing="14">
-                                    <TextBlock Text="接口配置"
-                                               FontSize="18"
-                                               FontWeight="SemiBold"
-                                               Foreground="#1F2433" />
-                                    <Grid ColumnDefinitions="160,*"
-                                          RowDefinitions="Auto,Auto,Auto"
-                                          RowSpacing="12"
-                                          ColumnSpacing="12">
-                                        <TextBlock Grid.Row="0" Grid.Column="0" VerticalAlignment="Center" Text="Base URL" />
-                                        <TextBox x:Name="BaseUrlTextBox"
-                                                 Grid.Row="0"
-                                                 Grid.Column="1"
-                                                 Text="{Binding Settings.BaseUrl, UpdateSourceTrigger=PropertyChanged}"
-                                                 Watermark="https://open.bigmodel.cn/api/paas/v4/" />
+                    <TabControl Margin="0,6,0,0"
+                                 Background="Transparent"
+                                 BorderBrush="Transparent"
+                                 Padding="0">
+                        <TabItem Header="基础设置">
+                            <ScrollViewer>
+                                <StackPanel Spacing="16">
+                                    <Border Background="White"
+                                            CornerRadius="12"
+                                            Padding="20"
+                                            Classes="card">
+                                        <StackPanel Spacing="14">
+                                            <TextBlock Text="接口配置"
+                                                       FontSize="18"
+                                                       FontWeight="SemiBold"
+                                                       Foreground="#1F2433" />
+                                            <Grid ColumnDefinitions="160,*"
+                                                  RowDefinitions="Auto,Auto,Auto"
+                                                  RowSpacing="12"
+                                                  ColumnSpacing="12">
+                                                <TextBlock Grid.Row="0" Grid.Column="0" VerticalAlignment="Center" Text="Base URL" />
+                                                <TextBox x:Name="BaseUrlTextBox"
+                                                         Grid.Row="0"
+                                                         Grid.Column="1"
+                                                         Text="{Binding Settings.BaseUrl, UpdateSourceTrigger=PropertyChanged}"
+                                                         Watermark="https://open.bigmodel.cn/api/paas/v4/" />
 
-                                        <TextBlock Grid.Row="1" Grid.Column="0" VerticalAlignment="Center" Text="模型名称" />
-                                        <TextBox x:Name="ModelTextBox"
-                                                 Grid.Row="1"
-                                                 Grid.Column="1"
-                                                 Text="{Binding Settings.Model, UpdateSourceTrigger=PropertyChanged}" />
+                                                <TextBlock Grid.Row="1" Grid.Column="0" VerticalAlignment="Center" Text="模型名称" />
+                                                <TextBox x:Name="ModelTextBox"
+                                                         Grid.Row="1"
+                                                         Grid.Column="1"
+                                                         Text="{Binding Settings.Model, UpdateSourceTrigger=PropertyChanged}" />
 
-                                        <TextBlock Grid.Row="2" Grid.Column="0" VerticalAlignment="Center" Text="API Key" />
-                                        <TextBox x:Name="ApiKeyTextBox"
-                                                 Grid.Row="2"
-                                                 Grid.Column="1"
-                                                 Text="{Binding Settings.ApiKey, UpdateSourceTrigger=PropertyChanged}" />
-                                    </Grid>
+                                                <TextBlock Grid.Row="2" Grid.Column="0" VerticalAlignment="Center" Text="API Key" />
+                                                <TextBox x:Name="ApiKeyTextBox"
+                                                         Grid.Row="2"
+                                                         Grid.Column="1"
+                                                         Text="{Binding Settings.ApiKey, UpdateSourceTrigger=PropertyChanged}" />
+                                            </Grid>
+                                        </StackPanel>
+                                    </Border>
+
+                                    <Border Background="White"
+                                            CornerRadius="12"
+                                            Padding="20"
+                                            Classes="card">
+                                        <StackPanel Spacing="14">
+                                            <TextBlock Text="捕捉与保存"
+                                                       FontSize="18"
+                                                       FontWeight="SemiBold"
+                                                       Foreground="#1F2433" />
+                                            <Grid ColumnDefinitions="160,*"
+                                                  RowDefinitions="Auto,Auto,Auto,Auto,Auto"
+                                                  RowSpacing="12"
+                                                  ColumnSpacing="12">
+                                                <TextBlock Grid.Row="0" Grid.Column="0" VerticalAlignment="Center" Text="默认 Prompt" />
+                                                <TextBox x:Name="DefaultPromptTextBox"
+                                                         Grid.Row="0"
+                                                         Grid.Column="1"
+                                                         TextWrapping="Wrap"
+                                                         AcceptsReturn="True"
+                                                         Height="68"
+                                                         Text="{Binding Settings.DefaultPrompt, UpdateSourceTrigger=PropertyChanged}" />
+
+                                                <TextBlock Grid.Row="1" Grid.Column="0" VerticalAlignment="Center" Text="捕捉热键" />
+                                                <TextBox x:Name="HotkeyTextBox"
+                                                         Grid.Row="1"
+                                                         Grid.Column="1"
+                                                         IsReadOnly="True"
+                                                         Text="{Binding Settings.CaptureHotkey.Shortcut}" />
+
+                                                <TextBlock Grid.Row="2" Grid.Column="0" VerticalAlignment="Center" Text="输出目录" />
+                                                <StackPanel Grid.Row="2"
+                                                            Grid.Column="1"
+                                                            Orientation="Horizontal"
+                                                            Spacing="8">
+                                                    <TextBox x:Name="OutputDirectoryTextBox"
+                                                             Width="360"
+                                                             Text="{Binding Settings.OutputDirectory, UpdateSourceTrigger=PropertyChanged}" />
+                                                    <Button x:Name="BrowseFolderButton"
+                                                            Content="浏览..." />
+                                                </StackPanel>
+
+                                                <TextBlock Grid.Row="3" Grid.Column="0" VerticalAlignment="Center" Text="保留条数" />
+                                                <StackPanel Grid.Row="3"
+                                                            Grid.Column="1"
+                                                            Orientation="Horizontal"
+                                                            Spacing="8">
+                                                    <TextBox x:Name="HistoryLimitTextBox"
+                                                             Width="80"
+                                                             Text="{Binding Settings.HistoryLimit, UpdateSourceTrigger=PropertyChanged}" />
+                                                    <Button Content="刷新目录"
+                                                            Command="{Binding RefreshOutputFolderCommand}" />
+                                                </StackPanel>
+
+                                                <Button Grid.Row="4"
+                                                        Grid.Column="1"
+                                                        Content="保存设置"
+                                                        Command="{Binding SaveSettingsCommand}"
+                                                        Background="#4C6EF5"
+                                                        Foreground="White"
+                                                        Padding="18,10"
+                                                        FontWeight="SemiBold"
+                                                        HorizontalAlignment="Left" />
+                                            </Grid>
+                                        </StackPanel>
+                                    </Border>
                                 </StackPanel>
-                            </Border>
+                            </ScrollViewer>
+                        </TabItem>
 
-                            <Border Background="White"
-                                    CornerRadius="12"
-                                    Padding="20"
-                                    Classes="card">
-                                <StackPanel Spacing="14">
-                                    <TextBlock Text="捕捉与保存"
-                                               FontSize="18"
-                                               FontWeight="SemiBold"
-                                               Foreground="#1F2433" />
-                                    <Grid ColumnDefinitions="160,*"
-                                          RowDefinitions="Auto,Auto,Auto,Auto,Auto"
-                                          RowSpacing="12"
-                                          ColumnSpacing="12">
-                                        <TextBlock Grid.Row="0" Grid.Column="0" VerticalAlignment="Center" Text="固定 Prompt" />
-                                        <TextBox x:Name="DefaultPromptTextBox"
-                                                 Grid.Row="0"
-                                                 Grid.Column="1"
-                                                 TextWrapping="Wrap"
-                                                 AcceptsReturn="True"
-                                                 Height="68"
-                                                 Text="{Binding Settings.DefaultPrompt, UpdateSourceTrigger=PropertyChanged}" />
+                        <TabItem Header="Prompt 模板">
+                            <Grid ColumnDefinitions="300,*"
+                                  ColumnSpacing="16">
+                                <StackPanel Grid.Column="0"
+                                            Spacing="12">
+                                    <Border Background="White"
+                                            CornerRadius="12"
+                                            Padding="16"
+                                            Classes="card">
+                                        <StackPanel Spacing="10">
+                                            <TextBlock Text="规则列表"
+                                                       FontSize="16"
+                                                       FontWeight="SemiBold"
+                                                       Foreground="#1F2433" />
+                                            <TextBlock Text="按顺序匹配，命中后将覆盖默认 Prompt"
+                                                       FontSize="12"
+                                                       Foreground="#7A8199" />
+                                            <StackPanel Orientation="Horizontal"
+                                                        Spacing="8">
+                                                <Button Content="新增规则"
+                                                        Command="{Binding AddPromptRuleCommand}" />
+                                                <Button Content="删除"
+                                                        Command="{Binding RemovePromptRuleCommand}" />
+                                                <Button Content="上移"
+                                                        Command="{Binding MovePromptRuleUpCommand}" />
+                                                <Button Content="下移"
+                                                        Command="{Binding MovePromptRuleDownCommand}" />
+                                            </StackPanel>
+                                            <ListBox ItemsSource="{Binding Settings.PromptRules}"
+                                                     SelectedItem="{Binding SelectedPromptRule}"
+                                                     Background="#F7F9FF"
+                                                     BorderBrush="#E1E6F6"
+                                                     Margin="0,8,0,0"
+                                                     Height="420">
+                                                <ListBox.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <Border Background="Transparent"
+                                                                Padding="10"
+                                                                CornerRadius="8">
+                                                            <StackPanel Spacing="4">
+                                                                <TextBlock Text="{Binding ProcessName}"
+                                                                           FontWeight="SemiBold"
+                                                                           Foreground="#2E3554" />
+                                                                <TextBlock Text="{Binding WindowTitle}"
+                                                                           FontSize="12"
+                                                                           Foreground="#7A8199"
+                                                                           TextWrapping="Wrap" />
+                                                                <TextBlock Text="{Binding Prompt}"
+                                                                           FontSize="12"
+                                                                           Foreground="#5C6480"
+                                                                           TextWrapping="Wrap"
+                                                                           MaxHeight="72" />
+                                                            </StackPanel>
+                                                        </Border>
+                                                    </DataTemplate>
+                                                </ListBox.ItemTemplate>
+                                            </ListBox>
+                                        </StackPanel>
+                                    </Border>
+                                </StackPanel>
 
-                                        <TextBlock Grid.Row="1" Grid.Column="0" VerticalAlignment="Center" Text="捕捉热键" />
-                                        <TextBox x:Name="HotkeyTextBox"
-                                                 Grid.Row="1"
-                                                 Grid.Column="1"
-                                                 IsReadOnly="True"
-                                                 Text="{Binding Settings.CaptureHotkey.Shortcut}" />
-
-                                        <TextBlock Grid.Row="2" Grid.Column="0" VerticalAlignment="Center" Text="输出目录" />
-                                        <StackPanel Grid.Row="2"
-                                                    Grid.Column="1"
-                                                    Orientation="Horizontal"
-                                                    Spacing="8">
-                                            <TextBox x:Name="OutputDirectoryTextBox"
-                                                     Width="360"
-                                                     Text="{Binding Settings.OutputDirectory, UpdateSourceTrigger=PropertyChanged}" />
-                                            <Button x:Name="BrowseFolderButton"
-                                                    Content="浏览..." />
+                                <Border Grid.Column="1"
+                                        Background="White"
+                                        CornerRadius="12"
+                                        Padding="20"
+                                        Classes="card">
+                                    <Grid RowDefinitions="Auto,*"
+                                          RowSpacing="12">
+                                        <StackPanel Spacing="6">
+                                            <TextBlock Text="规则详情"
+                                                       FontSize="16"
+                                                       FontWeight="SemiBold"
+                                                       Foreground="#1F2433" />
+                                            <TextBlock Text="填写进程名（必填）、可选窗口标题及 Prompt 内容"
+                                                       FontSize="12"
+                                                       Foreground="#7A8199" />
                                         </StackPanel>
 
-                                        <TextBlock Grid.Row="3" Grid.Column="0" VerticalAlignment="Center" Text="保留条数" />
-                                        <StackPanel Grid.Row="3"
-                                                    Grid.Column="1"
-                                                    Orientation="Horizontal"
-                                                    Spacing="8">
-                                            <TextBox x:Name="HistoryLimitTextBox"
-                                                     Width="80"
-                                                     Text="{Binding Settings.HistoryLimit, UpdateSourceTrigger=PropertyChanged}" />
-                                            <Button Content="刷新目录"
-                                                    Command="{Binding RefreshOutputFolderCommand}" />
-                                        </StackPanel>
+                                        <Grid Grid.Row="1"
+                                              ColumnDefinitions="160,*"
+                                              RowDefinitions="Auto,Auto,Auto,Auto"
+                                              RowSpacing="12"
+                                              ColumnSpacing="12">
+                                            <TextBlock Grid.Row="0" Grid.Column="0" VerticalAlignment="Center" Text="进程名称（必填）" />
+                                            <TextBox Grid.Row="0"
+                                                     Grid.Column="1"
+                                                     Text="{Binding SelectedPromptRule.ProcessName, UpdateSourceTrigger=PropertyChanged}"
+                                                     Watermark="例如：chrome 或 chrome.exe"
+                                                     IsEnabled="{Binding HasSelectedPromptRule}" />
 
-                                        <Button Grid.Row="4"
-                                                Grid.Column="1"
-                                                Content="保存设置"
-                                                Command="{Binding SaveSettingsCommand}"
-                                                Background="#4C6EF5"
-                                                Foreground="White"
-                                                Padding="18,10"
-                                                FontWeight="SemiBold"
-                                                HorizontalAlignment="Left" />
+                                            <TextBlock Grid.Row="1" Grid.Column="0" VerticalAlignment="Center" Text="窗口标题" />
+                                            <TextBox Grid.Row="1"
+                                                     Grid.Column="1"
+                                                     Text="{Binding SelectedPromptRule.WindowTitle, UpdateSourceTrigger=PropertyChanged}"
+                                                     Watermark="可选：支持包含匹配"
+                                                     IsEnabled="{Binding HasSelectedPromptRule}" />
+
+                                            <TextBlock Grid.Row="2" Grid.Column="0" VerticalAlignment="Center" Text="Prompt（必填）" />
+                                            <TextBox Grid.Row="2"
+                                                     Grid.Column="1"
+                                                     AcceptsReturn="True"
+                                                     Height="160"
+                                                     TextWrapping="Wrap"
+                                                     Text="{Binding SelectedPromptRule.Prompt, UpdateSourceTrigger=PropertyChanged}"
+                                                     IsEnabled="{Binding HasSelectedPromptRule}" />
+
+                                            <Button Grid.Row="3"
+                                                    Grid.Column="1"
+                                                    Content="保存规则"
+                                                    Command="{Binding SavePromptRulesCommand}"
+                                                    Background="#4C6EF5"
+                                                    Foreground="White"
+                                                    Padding="18,10"
+                                                    FontWeight="SemiBold"
+                                                    HorizontalAlignment="Left"
+                                                    IsEnabled="{Binding CanSavePromptRule}" />
+                                        </Grid>
+
+                                        <Border Grid.Row="1"
+                                                Background="#F6F8FF"
+                                                CornerRadius="10"
+                                                Padding="16"
+                                                IsVisible="{Binding NoPromptRuleSelected}">
+                                            <TextBlock Text="从左侧新增或选择一条规则即可开始编辑。"
+                                                       FontSize="13"
+                                                       Foreground="#5C6480" />
+                                        </Border>
                                     </Grid>
-                                </StackPanel>
-                            </Border>
-                        </StackPanel>
-                    </ScrollViewer>
+                                </Border>
+                            </Grid>
+                        </TabItem>
+                    </TabControl>
                 </TabItem>
             </TabControl>
         </Grid>

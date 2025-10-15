@@ -1,9 +1,11 @@
 using System;
 using System.Collections.ObjectModel;
+using System.Collections.Specialized;
+using System.ComponentModel;
 using System.IO;
+using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using System.Linq;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -19,9 +21,14 @@ public partial class MainWindowViewModel : ObservableObject
     private readonly SettingsService _settingsService;
     private readonly IAiClient _aiClient;
     private readonly GlobalHotkeyService _hotkeyService;
+    private readonly RelayCommand _removePromptRuleCommand;
+    private readonly RelayCommand _movePromptRuleUpCommand;
+    private readonly RelayCommand _movePromptRuleDownCommand;
+    private readonly RelayCommand _savePromptRulesCommand;
 
     private bool _hotkeysRegistered;
     private int _captureHotkeyId = -1;
+    private PromptRule? _subscribedPromptRule;
 
     public event EventHandler<CaptureRecord>? CaptureCompleted;
 
@@ -40,6 +47,12 @@ public partial class MainWindowViewModel : ObservableObject
     [ObservableProperty]
     private string statusMessage = "准备就绪";
 
+    [ObservableProperty]
+    private PromptRule? selectedPromptRule;
+
+    [ObservableProperty]
+    private bool canSavePromptRule;
+
     public MainWindowViewModel(
         IScreenshotService screenshotService,
         SettingsService settingsService,
@@ -54,8 +67,22 @@ public partial class MainWindowViewModel : ObservableObject
         CaptureCommand = new AsyncRelayCommand(CaptureInteractiveAsync, () => !IsBusy);
         SaveSettingsCommand = new RelayCommand(SaveSettings);
         RefreshOutputFolderCommand = new RelayCommand(EnsureOutputDirectory);
+        AddPromptRuleCommand = new RelayCommand(AddPromptRule);
+        _removePromptRuleCommand = new RelayCommand(RemoveSelectedPromptRule, () => SelectedPromptRule is not null);
+        _movePromptRuleUpCommand = new RelayCommand(() => MoveSelectedPromptRule(-1), () => CanMoveSelectedPromptRule(-1));
+        _movePromptRuleDownCommand = new RelayCommand(() => MoveSelectedPromptRule(1), () => CanMoveSelectedPromptRule(1));
+        _savePromptRulesCommand = new RelayCommand(SavePromptRules, CanSavePromptRules);
+        RemovePromptRuleCommand = _removePromptRuleCommand;
+        MovePromptRuleUpCommand = _movePromptRuleUpCommand;
+        MovePromptRuleDownCommand = _movePromptRuleDownCommand;
+        SavePromptRulesCommand = _savePromptRulesCommand;
 
         History = new ObservableCollection<CaptureRecord>();
+
+        Settings.PromptRules.CollectionChanged += PromptRulesOnCollectionChanged;
+        EnsureSelectedPromptRule();
+        UpdatePromptRuleCommandStates();
+        UpdatePromptRuleValidation();
     }
 
     public ObservableCollection<CaptureRecord> History { get; }
@@ -68,12 +95,35 @@ public partial class MainWindowViewModel : ObservableObject
 
     public IRelayCommand RefreshOutputFolderCommand { get; }
 
+    public IRelayCommand AddPromptRuleCommand { get; }
+
+    public IRelayCommand RemovePromptRuleCommand { get; }
+
+    public IRelayCommand MovePromptRuleUpCommand { get; }
+
+    public IRelayCommand MovePromptRuleDownCommand { get; }
+
+    public IRelayCommand SavePromptRulesCommand { get; }
+
     public string? SelectedMarkdownForCopy => SelectedRecord?.ResponseMarkdown;
+
+    public bool HasSelectedPromptRule => SelectedPromptRule is not null;
+
+    public bool NoPromptRuleSelected => SelectedPromptRule is null;
 
     partial void OnSelectedRecordChanged(CaptureRecord? value)
     {
         PreviewImage = value?.Preview;
         ResponseMarkdown = value?.ResponseMarkdown ?? string.Empty;
+    }
+
+    partial void OnSelectedPromptRuleChanged(PromptRule? value)
+    {
+        UpdatePromptRuleSubscription(value);
+        UpdatePromptRuleCommandStates();
+        OnPropertyChanged(nameof(HasSelectedPromptRule));
+        OnPropertyChanged(nameof(NoPromptRuleSelected));
+        UpdatePromptRuleValidation();
     }
 
     partial void OnIsBusyChanged(bool value)
@@ -167,20 +217,24 @@ public partial class MainWindowViewModel : ObservableObject
         var markdownPath = Path.Combine(outputDirectory, $"{baseName}.md");
 
         await File.WriteAllBytesAsync(imagePath, result.PngBytes);
+
+        var prompt = ResolvePrompt(result.ProcessName, result.WindowTitle);
         var record = new CaptureRecord
         {
             Id = baseName,
             ImagePath = imagePath,
             MarkdownPath = markdownPath,
             CapturedAt = timestamp,
-            Prompt = Settings.DefaultPrompt,
+            Prompt = prompt,
+            ProcessName = result.ProcessName,
+            WindowTitle = result.WindowTitle,
             Preview = result.Preview,
             ResponseMarkdown = "模型正在生成回复...",
             IsLoading = true,
             ImageBytes = result.PngBytes
         };
 
-        record.Conversation.Add(new ChatMessage("user", Settings.DefaultPrompt, includeImage: true));
+        record.Conversation.Add(new ChatMessage("user", prompt, includeImage: true));
 
         SetStatus("正在向模型请求描述...");
 
@@ -195,7 +249,7 @@ public partial class MainWindowViewModel : ObservableObject
         var success = false;
         try
         {
-            var response = await _aiClient.DescribeAsync(Settings, result.PngBytes);
+            var response = await _aiClient.DescribeAsync(Settings, result.PngBytes, prompt);
             var sanitized = SanitizeResponse(response);
             await Dispatcher.UIThread.InvokeAsync(() =>
             {
@@ -293,6 +347,260 @@ public partial class MainWindowViewModel : ObservableObject
         }
     }
 
+    private void PromptRulesOnCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        EnsureSelectedPromptRule();
+        UpdatePromptRuleCommandStates();
+        UpdatePromptRuleValidation();
+    }
+
+    private void EnsureSelectedPromptRule()
+    {
+        if (SelectedPromptRule is not null)
+        {
+            return;
+        }
+
+        if (Settings.PromptRules.Count > 0)
+        {
+            SelectedPromptRule = Settings.PromptRules[0];
+        }
+    }
+
+    private void AddPromptRule()
+    {
+        var rule = new PromptRule
+        {
+            Prompt = Settings.DefaultPrompt
+        };
+
+        Settings.PromptRules.Add(rule);
+        SelectedPromptRule = rule;
+        SetStatus("已新增规则，请填写必填字段后保存。");
+    }
+
+    private void RemoveSelectedPromptRule()
+    {
+        if (SelectedPromptRule is null)
+        {
+            return;
+        }
+
+        var current = SelectedPromptRule;
+        var index = Settings.PromptRules.IndexOf(current);
+        if (index < 0)
+        {
+            return;
+        }
+
+        Settings.PromptRules.RemoveAt(index);
+        if (Settings.PromptRules.Count == 0)
+        {
+            SelectedPromptRule = null;
+        }
+        else if (index < Settings.PromptRules.Count)
+        {
+            SelectedPromptRule = Settings.PromptRules[index];
+        }
+        else
+        {
+            SelectedPromptRule = Settings.PromptRules[^1];
+        }
+
+        PersistPromptRules();
+    }
+
+    private bool CanMoveSelectedPromptRule(int offset)
+    {
+        if (SelectedPromptRule is null)
+        {
+            return false;
+        }
+
+        var index = Settings.PromptRules.IndexOf(SelectedPromptRule);
+        if (index < 0)
+        {
+            return false;
+        }
+
+        var targetIndex = index + offset;
+        return targetIndex >= 0 && targetIndex < Settings.PromptRules.Count;
+    }
+
+    private void MoveSelectedPromptRule(int offset)
+    {
+        if (!CanMoveSelectedPromptRule(offset) || SelectedPromptRule is null)
+        {
+            return;
+        }
+
+        var index = Settings.PromptRules.IndexOf(SelectedPromptRule);
+        if (index < 0)
+        {
+            return;
+        }
+
+        var newIndex = index + offset;
+        Settings.PromptRules.Move(index, newIndex);
+        PersistPromptRules();
+    }
+
+    private void UpdatePromptRuleCommandStates()
+    {
+        _removePromptRuleCommand.NotifyCanExecuteChanged();
+        _movePromptRuleUpCommand.NotifyCanExecuteChanged();
+        _movePromptRuleDownCommand.NotifyCanExecuteChanged();
+        _savePromptRulesCommand.NotifyCanExecuteChanged();
+    }
+
+    private void SavePromptRules()
+    {
+        if (!CanSavePromptRules())
+        {
+            SetStatus("请先填写必填字段。");
+            return;
+        }
+
+        PersistPromptRules();
+    }
+
+    private void PersistPromptRules()
+    {
+        try
+        {
+            _settingsService.Save();
+            SetStatus("Prompt 模板已保存。");
+        }
+        catch (Exception ex)
+        {
+            SetStatus($"保存 Prompt 模板时出错：{ex.Message}");
+        }
+    }
+
+    private bool CanSavePromptRules()
+    {
+        if (SelectedPromptRule is null)
+        {
+            return false;
+        }
+
+        return !string.IsNullOrWhiteSpace(SelectedPromptRule.ProcessName)
+               && !string.IsNullOrWhiteSpace(SelectedPromptRule.Prompt);
+    }
+
+    private void UpdatePromptRuleValidation()
+    {
+        CanSavePromptRule = CanSavePromptRules();
+        _savePromptRulesCommand.NotifyCanExecuteChanged();
+    }
+
+    private void UpdatePromptRuleSubscription(PromptRule? rule)
+    {
+        if (_subscribedPromptRule is not null)
+        {
+            _subscribedPromptRule.PropertyChanged -= PromptRuleOnPropertyChanged;
+        }
+
+        _subscribedPromptRule = rule;
+
+        if (_subscribedPromptRule is not null)
+        {
+            _subscribedPromptRule.PropertyChanged += PromptRuleOnPropertyChanged;
+        }
+    }
+
+    private void PromptRuleOnPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is nameof(PromptRule.ProcessName) or nameof(PromptRule.Prompt))
+        {
+            UpdatePromptRuleValidation();
+        }
+    }
+
+    private string ResolvePrompt(string? processName, string? windowTitle)
+    {
+        if (Settings.PromptRules.Count == 0)
+        {
+            return Settings.DefaultPrompt;
+        }
+
+        var normalizedProcess = Normalize(processName);
+        string? normalizedProcessWithExe = normalizedProcess;
+        if (!string.IsNullOrEmpty(normalizedProcess) && !normalizedProcess.EndsWith(".exe", StringComparison.Ordinal))
+        {
+            normalizedProcessWithExe = normalizedProcess + ".exe";
+        }
+
+        var normalizedTitle = Normalize(windowTitle);
+
+        foreach (var rule in Settings.PromptRules)
+        {
+            if (string.IsNullOrWhiteSpace(rule.Prompt) || string.IsNullOrWhiteSpace(rule.ProcessName))
+            {
+                continue;
+            }
+
+            var ruleProcess = Normalize(rule.ProcessName);
+            if (string.IsNullOrEmpty(ruleProcess))
+            {
+                continue;
+            }
+
+            if (!ContainsNormalized(normalizedProcess, normalizedProcessWithExe, ruleProcess))
+            {
+                continue;
+            }
+
+            if (!string.IsNullOrWhiteSpace(rule.WindowTitle))
+            {
+                var ruleTitle = Normalize(rule.WindowTitle);
+                if (string.IsNullOrEmpty(ruleTitle))
+                {
+                    continue;
+                }
+
+                if (!ContainsNormalized(normalizedTitle, null, ruleTitle))
+                {
+                    continue;
+                }
+            }
+
+            return rule.Prompt;
+        }
+
+        return Settings.DefaultPrompt;
+    }
+
+    private static string? Normalize(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        return value.Trim().ToLowerInvariant();
+    }
+
+    private static bool ContainsNormalized(string? source, string? altSource, string target)
+    {
+        if (string.IsNullOrEmpty(target))
+        {
+            return false;
+        }
+
+        if (!string.IsNullOrEmpty(source) && source.Contains(target, StringComparison.Ordinal))
+        {
+            return true;
+        }
+
+        if (!string.IsNullOrEmpty(altSource) && altSource.Contains(target, StringComparison.Ordinal))
+        {
+            return true;
+        }
+
+        return false;
+    }
+
     private void TrimHistoryIfNeeded()
     {
         while (History.Count > Math.Max(1, Settings.HistoryLimit))
@@ -319,6 +627,14 @@ public partial class MainWindowViewModel : ObservableObject
         builder.AppendLine("---");
         builder.AppendLine($"- 截图文件：`{Path.GetFileName(record.ImagePath)}`");
         builder.AppendLine($"- 生成时间：{record.CapturedAt:yyyy-MM-dd HH:mm:ss}");
+        if (!string.IsNullOrWhiteSpace(record.ProcessName))
+        {
+            builder.AppendLine($"- 进程：{record.ProcessName}");
+        }
+        if (!string.IsNullOrWhiteSpace(record.WindowTitle))
+        {
+            builder.AppendLine($"- 窗口标题：{record.WindowTitle}");
+        }
         builder.AppendLine($"- 使用 Prompt：{record.Prompt}");
         return builder.ToString();
     }

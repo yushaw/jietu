@@ -20,11 +20,12 @@ public class GlmClient : IAiClient
         _httpClient = httpClient;
     }
 
-    public Task<string> DescribeAsync(AppSettings settings, byte[] pngBytes, CancellationToken cancellationToken = default)
+    public Task<string> DescribeAsync(AppSettings settings, byte[] pngBytes, string prompt, CancellationToken cancellationToken = default)
     {
+        var message = string.IsNullOrWhiteSpace(prompt) ? settings.DefaultPrompt : prompt;
         var conversation = new List<ChatMessage>
         {
-            new("user", settings.DefaultPrompt, includeImage: true)
+            new("user", message, includeImage: true)
         };
 
         return SendAsync(settings, pngBytes, conversation, cancellationToken);

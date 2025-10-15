@@ -1,4 +1,5 @@
 using System;
+using System.Collections.ObjectModel;
 using System.IO;
 
 namespace SnapDescribe.App.Models;
@@ -22,4 +23,8 @@ public class AppSettings
     public HotkeySetting CaptureHotkey { get; set; } = HotkeySetting.ParseOrDefault("Alt+T");
 
     public int HistoryLimit { get; set; } = 30;
+
+    public ObservableCollection<PromptRule> PromptRules { get; set; } = new();
+
+    public bool HasSeededDefaultPromptRules { get; set; }
 }

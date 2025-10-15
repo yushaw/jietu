@@ -1,8 +1,10 @@
 using System;
+using System.Diagnostics;
 using System.Drawing.Imaging;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Avalonia;
@@ -58,6 +60,8 @@ public class ScreenshotService : IScreenshotService
                 return null;
             }
 
+            var metadata = ResolveWindowMetadata(selection);
+
             DrawingBitmap? capturedBitmap = null;
             if (selection.IsWindowSelection && selection.WindowHandle != IntPtr.Zero)
             {
@@ -66,7 +70,7 @@ public class ScreenshotService : IScreenshotService
 
             var finalBitmap = capturedBitmap ?? CropFromFull(fullBitmap, selection.ScreenRect, virtualLeft, virtualTop);
 
-            return CreateResult(finalBitmap);
+            return CreateResult(finalBitmap, metadata.ProcessName, metadata.WindowTitle);
         }
         catch (Exception ex)
         {
@@ -87,7 +91,201 @@ public class ScreenshotService : IScreenshotService
         return await selectionTask.ConfigureAwait(false);
     }
 
-    private static ScreenshotResult CreateResult(DrawingBitmap bitmap)
+    private static (string? ProcessName, string? WindowTitle) ResolveWindowMetadata(SelectionResult selection)
+    {
+        if (selection.IsWindowSelection && selection.WindowHandle != IntPtr.Zero)
+        {
+            if (TryGetWindowMetadata(selection.WindowHandle, out var metadata))
+            {
+                return metadata;
+            }
+        }
+
+        var rect = selection.ScreenRect;
+        if (rect.Width <= 0 || rect.Height <= 0)
+        {
+            return default;
+        }
+
+        if (TryResolveMetadataFromPoint(rect, out var metadataFromPoint))
+        {
+            return metadataFromPoint;
+        }
+
+        if (TryResolveMetadataFromOverlap(rect, out var metadataFromOverlap))
+        {
+            return metadataFromOverlap;
+        }
+
+        return default;
+    }
+
+    private static bool TryResolveMetadataFromPoint(PixelRect rect, out (string? ProcessName, string? WindowTitle) metadata)
+    {
+        metadata = default;
+
+        var centerX = rect.X + rect.Width / 2;
+        var centerY = rect.Y + rect.Height / 2;
+        var point = new Native.POINT(centerX, centerY);
+        var handle = Native.WindowFromPoint(point);
+        if (handle == IntPtr.Zero)
+        {
+            return false;
+        }
+
+        handle = Native.GetAncestor(handle, Native.GA_ROOT);
+        if (handle == IntPtr.Zero)
+        {
+            return false;
+        }
+
+        return TryGetWindowMetadata(handle, out metadata);
+    }
+
+    private static bool TryResolveMetadataFromOverlap(PixelRect rect, out (string? ProcessName, string? WindowTitle) metadata)
+    {
+        metadata = default;
+
+        var bestArea = 0L;
+        var bestHandle = IntPtr.Zero;
+        var selectionRight = rect.X + rect.Width;
+        var selectionBottom = rect.Y + rect.Height;
+
+        Native.EnumWindows((hwnd, _) =>
+        {
+            if (hwnd == IntPtr.Zero || !Native.IsWindow(hwnd))
+            {
+                return true;
+            }
+
+            if (!Native.IsWindowVisible(hwnd) || Native.IsIconic(hwnd))
+            {
+                return true;
+            }
+
+            if (!Native.GetWindowRect(hwnd, out var windowRect))
+            {
+                return true;
+            }
+
+            var width = windowRect.Right - windowRect.Left;
+            var height = windowRect.Bottom - windowRect.Top;
+            if (width <= 0 || height <= 0)
+            {
+                return true;
+            }
+
+            var className = Native.GetWindowClassName(hwnd);
+            if (className is "Progman" or "WorkerW" or "Shell_TrayWnd" or "Shell_SecondaryTrayWnd")
+            {
+                return true;
+            }
+
+            var overlapLeft = Math.Max(rect.X, windowRect.Left);
+            var overlapTop = Math.Max(rect.Y, windowRect.Top);
+            var overlapRight = Math.Min(selectionRight, windowRect.Right);
+            var overlapBottom = Math.Min(selectionBottom, windowRect.Bottom);
+
+            var overlapWidth = overlapRight - overlapLeft;
+            var overlapHeight = overlapBottom - overlapTop;
+            if (overlapWidth <= 0 || overlapHeight <= 0)
+            {
+                return true;
+            }
+
+            var overlapArea = (long)overlapWidth * overlapHeight;
+            if (overlapArea <= bestArea)
+            {
+                return true;
+            }
+
+            bestArea = overlapArea;
+            bestHandle = hwnd;
+            return true;
+        }, IntPtr.Zero);
+
+        if (bestHandle == IntPtr.Zero)
+        {
+            return false;
+        }
+
+        return TryGetWindowMetadata(bestHandle, out metadata);
+    }
+
+    private static bool TryGetWindowMetadata(IntPtr hwnd, out (string? ProcessName, string? WindowTitle) metadata)
+    {
+        metadata = default;
+
+        if (hwnd == IntPtr.Zero || !Native.IsWindow(hwnd))
+        {
+            return false;
+        }
+
+        string? windowTitle = null;
+        try
+        {
+            var capacity = Native.GetWindowTextLength(hwnd);
+            if (capacity > 0)
+            {
+                var builder = new StringBuilder(capacity + 1);
+                if (Native.GetWindowText(hwnd, builder, builder.Capacity) > 0)
+                {
+                    windowTitle = builder.ToString().Trim();
+                }
+            }
+        }
+        catch
+        {
+            // ignored
+        }
+
+        string? processName = null;
+        try
+        {
+            Native.GetWindowThreadProcessId(hwnd, out var processId);
+            if (processId != 0)
+            {
+                using var process = Process.GetProcessById((int)processId);
+                processName = TryResolveProcessName(process);
+            }
+        }
+        catch
+        {
+            // ignored
+        }
+
+        if (string.IsNullOrWhiteSpace(processName) && string.IsNullOrWhiteSpace(windowTitle))
+        {
+            return false;
+        }
+
+        metadata = (processName, windowTitle);
+        return true;
+    }
+
+    private static string? TryResolveProcessName(Process process)
+    {
+        try
+        {
+            var fileName = process.MainModule?.FileName;
+            if (!string.IsNullOrWhiteSpace(fileName))
+            {
+                var name = Path.GetFileName(fileName);
+                if (!string.IsNullOrWhiteSpace(name))
+                {
+                    return name;
+                }
+            }
+        }
+        catch
+        {
+            // ignored: accessing MainModule can fail for protected processes.
+        }
+
+        return process.ProcessName;
+    }
+
+    private static ScreenshotResult CreateResult(DrawingBitmap bitmap, string? processName, string? windowTitle)
     {
         using var memory = new MemoryStream();
         bitmap.Save(memory, ImageFormat.Png);
@@ -95,7 +293,7 @@ public class ScreenshotService : IScreenshotService
         using var previewStream = new MemoryStream(pngBytes);
         var avaloniaBitmap = new AvaloniaBitmap(previewStream);
         bitmap.Dispose();
-        return new ScreenshotResult(pngBytes, avaloniaBitmap);
+        return new ScreenshotResult(pngBytes, avaloniaBitmap, processName, windowTitle);
     }
 
     private static DrawingBitmap CropFromFull(DrawingBitmap source, PixelRect screenRect, int virtualLeft, int virtualTop)
@@ -202,6 +400,22 @@ public class ScreenshotService : IScreenshotService
         public static extern bool PrintWindow(IntPtr hwnd, IntPtr hdcBlt, int nFlags);
 
         [DllImport("user32.dll")]
+        public static extern IntPtr WindowFromPoint(POINT point);
+
+        [DllImport("user32.dll")]
+        public static extern IntPtr GetAncestor(IntPtr hWnd, uint gaFlags);
+
+        [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+        public static extern int GetWindowText(IntPtr hWnd, StringBuilder lpString, int nMaxCount);
+
+        [DllImport("user32.dll", SetLastError = true)]
+        public static extern int GetWindowTextLength(IntPtr hWnd);
+
+        [DllImport("user32.dll")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        public static extern bool IsWindow(IntPtr hWnd);
+
+        [DllImport("user32.dll")]
         public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint processId);
 
         [DllImport("kernel32.dll")]
@@ -210,6 +424,53 @@ public class ScreenshotService : IScreenshotService
         [DllImport("user32.dll")]
         public static extern bool AttachThreadInput(uint idAttach, uint idAttachTo, bool fAttach);
 
+        [DllImport("user32.dll")]
+        public static extern bool EnumWindows(EnumWindowsProc lpEnumFunc, IntPtr lParam);
+
+        [DllImport("user32.dll")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        public static extern bool IsWindowVisible(IntPtr hWnd);
+
+        [DllImport("user32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        public static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
+
+        [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+        public static extern int GetClassName(IntPtr hWnd, StringBuilder lpClassName, int nMaxCount);
+
+        public const uint GA_ROOT = 2;
         public const int SW_RESTORE = 9;
+
+        public delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
+
+        [StructLayout(LayoutKind.Sequential)]
+        public struct POINT
+        {
+            public POINT(int x, int y)
+            {
+                X = x;
+                Y = y;
+            }
+
+            public int X;
+            public int Y;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        public struct RECT
+        {
+            public int Left;
+            public int Top;
+            public int Right;
+            public int Bottom;
+        }
+
+        public static string GetWindowClassName(IntPtr hWnd)
+        {
+            var builder = new StringBuilder(256);
+            return GetClassName(hWnd, builder, builder.Capacity) > 0
+                ? builder.ToString()
+                : string.Empty;
+        }
     }
 }

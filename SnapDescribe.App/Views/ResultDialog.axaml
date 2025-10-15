@@ -31,6 +31,33 @@
                                    Foreground="#7A8199"
                                    Text="生成于" />
                         <StackPanel Spacing="6">
+                            <TextBlock Text="窗口标题"
+                                       FontSize="12"
+                                       Foreground="#7A8199" />
+                            <TextBlock FontSize="13"
+                                       Foreground="#2E3554"
+                                       TextWrapping="Wrap">
+                                <TextBlock.Text>
+                                    <Binding Path="WindowTitle"
+                                             TargetNullValue="未获取窗口标题"
+                                             StringFormat="{}{0}" />
+                                </TextBlock.Text>
+                            </TextBlock>
+                            <TextBlock Text="进程名称"
+                                       FontSize="12"
+                                       Foreground="#7A8199"
+                                       Margin="0,6,0,0" />
+                            <TextBlock FontSize="13"
+                                       Foreground="#2E3554"
+                                       TextWrapping="Wrap">
+                                <TextBlock.Text>
+                                    <Binding Path="ProcessName"
+                                             TargetNullValue="未获取进程名称"
+                                             StringFormat="{}{0}" />
+                                </TextBlock.Text>
+                            </TextBlock>
+                        </StackPanel>
+                        <StackPanel Spacing="6">
                             <TextBlock Text="使用 Prompt"
                                        FontSize="12"
                                        Foreground="#7A8199" />

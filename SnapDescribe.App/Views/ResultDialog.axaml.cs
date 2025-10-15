@@ -26,6 +26,8 @@ public partial class ResultDialog : Window
         DataContext = record;
 
         PreviewImage.Source = record.Preview;
+        TitleText.Text = record.DisplayTitle;
+        SubTitleText.Text = $"生成于 {record.CapturedAt:yyyy-MM-dd HH:mm:ss}";
 
         SendButton.Click += OnSendClicked;
         ChatInput.KeyDown += ChatInputOnKeyDown;
