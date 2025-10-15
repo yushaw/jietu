@@ -92,6 +92,7 @@ public partial class MainWindow : Window
         }
 
         _viewModel.CaptureCompleted += OnCaptureCompleted;
+        _ = _viewModel.LoadHistoryAsync();
         Opened += HandleOpened;
         Closed += HandleClosed;
     }

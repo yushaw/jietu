@@ -21,6 +21,7 @@ Agents augments the core screenshot→prompt→response workflow by orchestratin
 5. **Localized messaging.** Any user-facing string added for agents must be routed through LocalizationService resources.
 6. **Bilingual UX parity.** UI changes must be validated against both zh-CN and en-US resources to ensure layout and copy remain balanced.
 7. **Incremental delivery.** Finish each feature slice with a dedicated commit that references the original requirement and summarises the implementation.
+8. **Test-first mindset.** Every agent-facing service must have automated coverage for critical logic (rules, IO, retries) and the test suite must pass before integration merges.
 
 ## Architecture Checklist
 
@@ -31,7 +32,7 @@ When introducing a new agent or capability:
 - [ ] Hook into `MainWindowViewModel` via dependency injection for orchestration.
 - [ ] Provide granular logging using `DiagnosticLogger`.
 - [ ] Update resource dictionaries with localized strings.
-- [ ] Add tests or debug harnesses where possible (consider xUnit for pure logic, integration tests for MCP).
+- [ ] Add unit/integration tests or debug harnesses to exercise new agents, and run `dotnet test SnapDescribe.sln` before submission.
 
 ## MCP Integration Notes
 

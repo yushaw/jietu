@@ -97,7 +97,7 @@
                                 Padding="20">
                             <Grid ColumnDefinitions="300,*"
                                   ColumnSpacing="20">
-                                <StackPanel Grid.Column="0" Spacing="8">
+                                <StackPanel Grid.Column="0" Spacing="10">
                                     <TextBlock Text="{DynamicResource Label.HistoryTitle}"
                                                FontWeight="SemiBold"
                                                FontSize="16"
@@ -105,79 +105,58 @@
                                     <TextBlock Text="{DynamicResource Label.HistorySubtitle}"
                                                FontSize="12"
                                                Foreground="#7A8199" />
-                                    <ScrollViewer Margin="0,12,0,0"
-                                                  HorizontalScrollBarVisibility="Disabled">
+                                    <Border Margin="0,10,0,0"
+                                            Background="#F8FAFF"
+                                            BorderBrush="#E2E8F6"
+                                            BorderThickness="1"
+                                            CornerRadius="14"
+                                            Padding="6">
                                         <ListBox x:Name="HistoryList"
                                                  ItemsSource="{Binding History}"
                                                  SelectedItem="{Binding SelectedRecord}"
-                                                 BorderBrush="Transparent"
-                                                 Background="Transparent">
+                                                 Background="Transparent"
+                                                 BorderThickness="0"
+                                                 ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                                 ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                                 MaxHeight="420">
                                             <ListBox.ItemTemplate>
                                                 <DataTemplate>
                                                     <Border Padding="10"
-                                                            Margin="0,0,0,10"
-                                                            Background="#F7F9FF"
-                                                            BorderBrush="#E2E8F6"
+                                                            Margin="0,0,0,8"
+                                                            Background="White"
+                                                            BorderBrush="#D9E1F6"
                                                             BorderThickness="1"
-                                                            CornerRadius="12">
-                                                        <StackPanel>
+                                                            CornerRadius="10">
+                                                        <StackPanel Spacing="4">
                                                             <TextBlock Text="{Binding DisplayTitle}"
                                                                        FontWeight="SemiBold"
                                                                        Foreground="#1F2433" />
                                                             <TextBlock Text="{Binding DisplayContext}"
                                                                        FontSize="12"
                                                                        Foreground="#6B7280"
-                                                                       TextWrapping="Wrap"
-                                                                       Margin="4,2,0,0" />
-                                                            <TextBlock Text="{Binding Prompt}"
-                                                                       FontSize="12"
-                                                                       Foreground="#94A3B8"
-                                                                       TextWrapping="Wrap"
-                                                                       Margin="4,2,0,0" />
+                                                                       TextWrapping="Wrap" />
                                                         </StackPanel>
                                                     </Border>
                                                 </DataTemplate>
                                             </ListBox.ItemTemplate>
                                         </ListBox>
-                                    </ScrollViewer>
+                                    </Border>
                                 </StackPanel>
 
-                                <StackPanel Grid.Column="1" Spacing="16">
-                                    <TextBlock Text="{Binding SelectedRecord.DisplayTitle}"
-                                               FontWeight="SemiBold"
-                                               FontSize="17"
-                                               Foreground="#111827" />
-                                    <TextBlock Text="{Binding SelectedRecord.DisplayContext}"
-                                               FontSize="12"
-                                               Foreground="#6B7280" />
-                                    <Border Background="#F9FAFD"
-                                            CornerRadius="16"
-                                            Padding="14"
-                                            BorderBrush="#E2E8F6"
-                                            BorderThickness="1"
-                                            Height="320">
-                                        <Image Source="{Binding PreviewImage}"
-                                               Stretch="Uniform"
-                                               HorizontalAlignment="Center"
-                                               VerticalAlignment="Center" />
-                                    </Border>
-                                    <Border Background="White"
-                                            CornerRadius="16"
-                                            Padding="14"
-                                            BorderBrush="#E2E8F6"
-                                            BorderThickness="1">
-                                        <StackPanel Spacing="6">
-                                            <TextBlock Text="{DynamicResource Label.PromptUsed}"
-                                                       FontWeight="SemiBold"
-                                                       FontSize="13"
-                                                       Foreground="#1F2433" />
-                                            <TextBlock Text="{Binding SelectedRecord.Prompt}"
-                                                       FontSize="12"
-                                                       Foreground="#334155"
-                                                       TextWrapping="Wrap" />
-                                        </StackPanel>
-                                    </Border>
-                                </StackPanel>
+                                <Border Grid.Column="1"
+                                        Background="#F8FAFF"
+                                        CornerRadius="18"
+                                        Padding="16"
+                                        BorderBrush="#E2E8F6"
+                                        BorderThickness="1"
+                                        MinHeight="360">
+                                    <Image Source="{Binding PreviewImage}"
+                                           Stretch="Uniform"
+                                           HorizontalAlignment="Center"
+                                           VerticalAlignment="Center"
+                                           MaxWidth="540"
+                                           MaxHeight="420" />
+                                </Border>
                             </Grid>
                         </Border>
                     </Grid>

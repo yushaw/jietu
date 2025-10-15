@@ -1,10 +1,15 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.ComponentModel;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Text.Json;
+using System.Globalization;
+using System.Text.Json.Serialization;
+using System.Threading;
 using System.Threading.Tasks;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
@@ -30,6 +35,13 @@ public partial class MainWindowViewModel : ObservableObject
     private string? _lastStatusResourceKey;
     private object[] _lastStatusArgs = Array.Empty<object>();
     private readonly DispatcherTimer _statusTimer;
+    private bool _historyLoaded;
+    private const string MetadataExtension = ".json";
+    private static readonly JsonSerializerOptions HistoryJsonOptions = new(JsonSerializerDefaults.Web)
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        WriteIndented = true
+    };
 
     private bool _hotkeysRegistered;
     private int _captureHotkeyId = -1;
@@ -171,6 +183,66 @@ public partial class MainWindowViewModel : ObservableObject
     partial void OnIsBusyChanged(bool value)
     {
         CaptureCommand.NotifyCanExecuteChanged();
+    }
+
+    public async Task LoadHistoryAsync(CancellationToken cancellationToken = default)
+    {
+        if (_historyLoaded)
+        {
+            return;
+        }
+
+        _historyLoaded = true;
+
+        try
+        {
+            EnsureOutputDirectory();
+            var directory = Settings.OutputDirectory;
+            if (string.IsNullOrWhiteSpace(directory) || !Directory.Exists(directory))
+            {
+                return;
+            }
+
+            var limit = Math.Max(1, Settings.HistoryLimit);
+            var persisted = await Task.Run(() => LoadPersistedCaptures(directory, limit, cancellationToken), cancellationToken).ConfigureAwait(false);
+            if (persisted.Count == 0)
+            {
+                return;
+            }
+
+            await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                var existingIds = new HashSet<string>(History.Select(record => record.Id), StringComparer.OrdinalIgnoreCase);
+
+                foreach (var data in persisted)
+                {
+                    if (existingIds.Contains(data.Id))
+                    {
+                        continue;
+                    }
+
+                    var record = CreateCaptureRecord(data);
+                    if (record is not null)
+                    {
+                        History.Add(record);
+                        existingIds.Add(record.Id);
+                    }
+                }
+
+                if (History.Count > 0 && SelectedRecord is null)
+                {
+                    SelectedRecord = History[0];
+                }
+            });
+        }
+        catch (OperationCanceledException)
+        {
+            // ignore cancellation
+        }
+        catch (Exception ex)
+        {
+            DiagnosticLogger.Log("Failed to load capture history.", ex);
+        }
     }
 
     public void InitializeHotkeys()
@@ -325,12 +397,14 @@ public partial class MainWindowViewModel : ObservableObject
         }
         finally
         {
-        await Dispatcher.UIThread.InvokeAsync(() => record.IsLoading = false);
-        if (success)
-        {
-            SetStatusFromResource("Status.Completed");
+            await Dispatcher.UIThread.InvokeAsync(() => record.IsLoading = false);
+            if (success)
+            {
+                SetStatusFromResource("Status.Completed");
+            }
         }
-        }
+
+        await SaveRecordMetadataAsync(record);
     }
 
     public async Task ContinueConversationAsync(CaptureRecord record, string userMessage)
@@ -404,6 +478,8 @@ public partial class MainWindowViewModel : ObservableObject
         {
             DiagnosticLogger.Log("Failed to write conversation markdown", ex);
         }
+
+        await SaveRecordMetadataAsync(record);
     }
 
     private void PromptRulesOnCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
@@ -667,6 +743,389 @@ public partial class MainWindowViewModel : ObservableObject
         return false;
     }
 
+    private List<PersistedCapture> LoadPersistedCaptures(string directory, int limit, CancellationToken cancellationToken)
+    {
+        var captures = new List<PersistedCapture>();
+
+        foreach (var jsonPath in Directory.EnumerateFiles(directory, $"*{MetadataExtension}", SearchOption.TopDirectoryOnly))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var capture = LoadCaptureFromJson(jsonPath);
+            if (capture is not null)
+            {
+                captures.Add(capture);
+            }
+        }
+
+        foreach (var markdownPath in Directory.EnumerateFiles(directory, "*.md", SearchOption.TopDirectoryOnly))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var metadataPath = Path.ChangeExtension(markdownPath, MetadataExtension);
+            if (File.Exists(metadataPath))
+            {
+                continue;
+            }
+
+            var capture = LoadCaptureFromMarkdown(markdownPath);
+            if (capture is not null)
+            {
+                captures.Add(capture);
+            }
+        }
+
+        var ordered = captures
+            .Where(capture => File.Exists(capture.ImagePath) && File.Exists(capture.MarkdownPath))
+            .OrderByDescending(capture => capture.CapturedAt)
+            .Take(limit)
+            .ToList();
+
+        foreach (var capture in ordered)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            try
+            {
+                capture.ImageBytes = File.ReadAllBytes(capture.ImagePath);
+            }
+            catch (Exception ex)
+            {
+                DiagnosticLogger.Log($"Failed to read screenshot bytes for {capture.ImagePath}", ex);
+                capture.ImageBytes = Array.Empty<byte>();
+            }
+        }
+
+        return ordered;
+    }
+
+    private PersistedCapture? LoadCaptureFromJson(string jsonPath)
+    {
+        try
+        {
+            var json = File.ReadAllText(jsonPath);
+            var capture = JsonSerializer.Deserialize<PersistedCapture>(json, HistoryJsonOptions);
+            if (capture is null)
+            {
+                return null;
+            }
+
+            if (string.IsNullOrWhiteSpace(capture.Id))
+            {
+                capture.Id = Path.GetFileNameWithoutExtension(jsonPath);
+            }
+
+            var directory = Path.GetDirectoryName(jsonPath) ?? Settings.OutputDirectory;
+            if (string.IsNullOrWhiteSpace(capture.ImagePath))
+            {
+                capture.ImagePath = Path.Combine(directory, $"{capture.Id}.png");
+            }
+
+            if (string.IsNullOrWhiteSpace(capture.MarkdownPath))
+            {
+                capture.MarkdownPath = Path.Combine(directory, $"{capture.Id}.md");
+            }
+
+            if (capture.CapturedAt == default)
+            {
+                capture.CapturedAt = File.GetCreationTimeUtc(jsonPath);
+            }
+
+            if (string.IsNullOrWhiteSpace(capture.Prompt))
+            {
+                capture.Prompt = Settings.DefaultPrompt;
+            }
+
+            return capture;
+        }
+        catch (Exception ex)
+        {
+            DiagnosticLogger.Log($"Failed to deserialize capture metadata: {jsonPath}", ex);
+            return null;
+        }
+    }
+
+    private PersistedCapture? LoadCaptureFromMarkdown(string markdownPath)
+    {
+        try
+        {
+            var directory = Path.GetDirectoryName(markdownPath) ?? Settings.OutputDirectory;
+            var baseName = Path.GetFileNameWithoutExtension(markdownPath);
+            var imagePath = Path.Combine(directory, $"{baseName}.png");
+            if (!File.Exists(imagePath))
+            {
+                return null;
+            }
+
+            var markdown = File.ReadAllText(markdownPath);
+            var sections = ParseConversationSections(markdown);
+            var metadata = ParseMetadata(markdown);
+
+            var prompt = metadata.TryGetValue("Prompt Used", out var promptValue)
+                ? promptValue
+                : metadata.TryGetValue("使用 Prompt", out var promptZh)
+                    ? promptZh
+                    : Settings.DefaultPrompt;
+
+            var processName = metadata.TryGetValue("Process", out var processValue)
+                ? processValue
+                : metadata.TryGetValue("进程", out var processZh)
+                    ? processZh
+                    : null;
+
+            var windowTitle = metadata.TryGetValue("Window Title", out var titleValue)
+                ? titleValue
+                : metadata.TryGetValue("窗口标题", out var titleZh)
+                    ? titleZh
+                    : null;
+
+            var capturedAt = ParseTimestamp(metadata, baseName, markdownPath);
+
+            var messages = new List<PersistedMessage>();
+            for (var i = 0; i < sections.Count; i++)
+            {
+                var role = i % 2 == 0 ? "user" : "assistant";
+                messages.Add(new PersistedMessage
+                {
+                    Role = role,
+                    Content = sections[i],
+                    IncludeImage = i == 0
+                });
+            }
+
+            var response = messages.LastOrDefault(m => m.Role == "assistant")?.Content ?? string.Empty;
+
+            return new PersistedCapture
+            {
+                Id = baseName,
+                ImagePath = imagePath,
+                MarkdownPath = markdownPath,
+                CapturedAt = capturedAt,
+                Prompt = prompt,
+                ProcessName = string.IsNullOrWhiteSpace(processName) ? null : processName,
+                WindowTitle = string.IsNullOrWhiteSpace(windowTitle) ? null : windowTitle,
+                ResponseMarkdown = response,
+                Conversation = messages.ToArray()
+            };
+        }
+        catch (Exception ex)
+        {
+            DiagnosticLogger.Log($"Failed to parse capture markdown: {markdownPath}", ex);
+            return null;
+        }
+    }
+
+    private static List<string> ParseConversationSections(string markdown)
+    {
+        var sections = new List<string>();
+        using var reader = new StringReader(markdown);
+        string? line;
+        var builder = new StringBuilder();
+        var inConversation = false;
+
+        while ((line = reader.ReadLine()) is not null)
+        {
+            if (line.StartsWith("---", StringComparison.Ordinal))
+            {
+                if (builder.Length > 0)
+                {
+                    sections.Add(builder.ToString().Trim());
+                }
+                break;
+            }
+
+            if (line.StartsWith("## ", StringComparison.Ordinal))
+            {
+                if (builder.Length > 0)
+                {
+                    sections.Add(builder.ToString().Trim());
+                }
+
+                builder.Clear();
+                inConversation = true;
+                continue;
+            }
+
+            if (!inConversation)
+            {
+                continue;
+            }
+
+            if (builder.Length > 0)
+            {
+                builder.AppendLine();
+            }
+
+            builder.Append(line);
+        }
+
+        if (builder.Length > 0)
+        {
+            sections.Add(builder.ToString().Trim());
+        }
+
+        return sections.Where(section => !string.IsNullOrWhiteSpace(section)).ToList();
+    }
+
+    private static Dictionary<string, string> ParseMetadata(string markdown)
+    {
+        var metadata = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var separatorIndex = markdown.IndexOf("---", StringComparison.Ordinal);
+        if (separatorIndex < 0)
+        {
+            return metadata;
+        }
+
+        var metadataContent = markdown[(separatorIndex + 3)..];
+        using var reader = new StringReader(metadataContent);
+        string? line;
+        while ((line = reader.ReadLine()) is not null)
+        {
+            var trimmed = line.Trim();
+            if (!trimmed.StartsWith("-", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            trimmed = trimmed.TrimStart('-').Trim();
+            if (trimmed.Length == 0)
+            {
+                continue;
+            }
+
+            var colonIndex = trimmed.IndexOfAny(new[] { ':', '：' });
+            if (colonIndex <= 0 || colonIndex >= trimmed.Length - 1)
+            {
+                continue;
+            }
+
+            var key = trimmed[..colonIndex].Trim();
+            var value = trimmed[(colonIndex + 1)..].Trim();
+            if (value.StartsWith('`') && value.EndsWith('`'))
+            {
+                value = value.Trim('`');
+            }
+
+            metadata[key] = value;
+        }
+
+        return metadata;
+    }
+
+    private static DateTimeOffset ParseTimestamp(Dictionary<string, string> metadata, string baseName, string markdownPath)
+    {
+        if (metadata.TryGetValue("Generated at", out var value) || metadata.TryGetValue("生成时间", out value))
+        {
+            if (DateTimeOffset.TryParseExact(value, "yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture,
+                    DateTimeStyles.AssumeLocal | DateTimeStyles.AllowWhiteSpaces, out var parsed))
+            {
+                return parsed;
+            }
+        }
+
+        if (baseName.StartsWith("capture_", StringComparison.OrdinalIgnoreCase))
+        {
+            var timestamp = baseName["capture_".Length..];
+            if (DateTimeOffset.TryParseExact(timestamp, "yyyyMMdd_HHmmssfff", CultureInfo.InvariantCulture,
+                    DateTimeStyles.AssumeLocal, out var parsedFromName))
+            {
+                return parsedFromName;
+            }
+        }
+
+        return File.GetCreationTime(markdownPath);
+    }
+
+    private CaptureRecord? CreateCaptureRecord(PersistedCapture data)
+    {
+        if (data.ImageBytes is null || data.ImageBytes.Length == 0)
+        {
+            return null;
+        }
+
+        Bitmap? preview = null;
+        try
+        {
+            using var stream = new MemoryStream(data.ImageBytes);
+            preview = new Bitmap(stream);
+        }
+        catch (Exception ex)
+        {
+            DiagnosticLogger.Log("Failed to create preview bitmap.", ex);
+        }
+
+        var record = new CaptureRecord
+        {
+            Id = data.Id,
+            ImagePath = data.ImagePath,
+            MarkdownPath = data.MarkdownPath,
+            CapturedAt = data.CapturedAt,
+            Prompt = string.IsNullOrWhiteSpace(data.Prompt) ? Settings.DefaultPrompt : data.Prompt,
+            ProcessName = string.IsNullOrWhiteSpace(data.ProcessName) ? null : data.ProcessName,
+            WindowTitle = string.IsNullOrWhiteSpace(data.WindowTitle) ? null : data.WindowTitle,
+            Preview = preview,
+            ResponseMarkdown = data.ResponseMarkdown ?? string.Empty,
+            ImageBytes = data.ImageBytes,
+            IsLoading = false
+        };
+
+        if (data.Conversation is { Length: > 0 })
+        {
+            foreach (var message in data.Conversation)
+            {
+                var role = string.IsNullOrWhiteSpace(message.Role) ? "assistant" : message.Role;
+                record.Conversation.Add(new ChatMessage(role, message.Content ?? string.Empty, message.IncludeImage));
+            }
+        }
+        else
+        {
+            var prompt = record.Prompt ?? Settings.DefaultPrompt;
+            record.Conversation.Add(new ChatMessage("user", prompt, includeImage: true));
+            if (!string.IsNullOrWhiteSpace(record.ResponseMarkdown))
+            {
+                record.Conversation.Add(new ChatMessage("assistant", record.ResponseMarkdown));
+            }
+        }
+
+        return record;
+    }
+
+    private async Task SaveRecordMetadataAsync(CaptureRecord record)
+    {
+        try
+        {
+            var metadata = new PersistedCapture
+            {
+                Id = record.Id,
+                ImagePath = record.ImagePath,
+                MarkdownPath = record.MarkdownPath,
+                CapturedAt = record.CapturedAt,
+                Prompt = record.Prompt,
+                ProcessName = record.ProcessName,
+                WindowTitle = record.WindowTitle,
+                ResponseMarkdown = record.ResponseMarkdown,
+                Conversation = record.Conversation
+                    .Select(message => new PersistedMessage
+                    {
+                        Role = message.Role,
+                        Content = message.Content,
+                        IncludeImage = message.IncludeImage
+                    })
+                    .ToArray()
+            };
+
+            var jsonPath = Path.ChangeExtension(record.MarkdownPath, MetadataExtension);
+            var directory = Path.GetDirectoryName(jsonPath);
+            if (!string.IsNullOrWhiteSpace(directory))
+            {
+                Directory.CreateDirectory(directory);
+            }
+            var json = JsonSerializer.Serialize(metadata, HistoryJsonOptions);
+            await File.WriteAllTextAsync(jsonPath, json, Encoding.UTF8).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            DiagnosticLogger.Log($"Failed to save capture metadata for {record.Id}", ex);
+        }
+    }
+
     private void TrimHistoryIfNeeded()
     {
         while (History.Count > Math.Max(1, Settings.HistoryLimit))
@@ -895,5 +1354,28 @@ public partial class MainWindowViewModel : ObservableObject
         {
             SetStatusFromResource("Status.SettingsSaved");
         }
+    }
+
+    private sealed class PersistedCapture
+    {
+        public string Id { get; set; } = string.Empty;
+        public string ImagePath { get; set; } = string.Empty;
+        public string MarkdownPath { get; set; } = string.Empty;
+        public DateTimeOffset CapturedAt { get; set; }
+        public string Prompt { get; set; } = string.Empty;
+        public string? ProcessName { get; set; }
+        public string? WindowTitle { get; set; }
+        public string ResponseMarkdown { get; set; } = string.Empty;
+        public PersistedMessage[] Conversation { get; set; } = Array.Empty<PersistedMessage>();
+
+        [JsonIgnore]
+        public byte[] ImageBytes { get; set; } = Array.Empty<byte>();
+    }
+
+    private sealed class PersistedMessage
+    {
+        public string Role { get; set; } = string.Empty;
+        public string Content { get; set; } = string.Empty;
+        public bool IncludeImage { get; set; }
     }
 }
