@@ -84,7 +84,8 @@ public partial class App : Application
             return _trayIconIcon;
         }
 
-        var uri = new Uri("avares://SnapDescribe.App/Assets/AppIcon.png");
+        var assemblyName = typeof(App).Assembly.GetName().Name;
+        var uri = new Uri($"avares://{assemblyName}/Assets/AppIcon.png");
         using var stream = AssetLoader.Open(uri);
         _trayIconIcon = new WindowIcon(stream);
         return _trayIconIcon;

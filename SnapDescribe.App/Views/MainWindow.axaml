@@ -129,41 +129,6 @@
                                     <TextBlock Text="{Binding SelectedRecord.DisplayContext}"
                                                FontSize="12"
                                                Foreground="#5C6480" />
-                                    <Border Background="#FFFFFF"
-                                            CornerRadius="10"
-                                            Padding="12"
-                                            BorderBrush="#E3E7F5"
-                                            BorderThickness="1">
-                                        <StackPanel Spacing="6">
-                                            <TextBlock Text="窗口标题"
-                                                       FontWeight="SemiBold"
-                                                       FontSize="13"
-                                                       Foreground="#1F2433" />
-                                            <TextBlock FontSize="12"
-                                                       Foreground="#2E3554"
-                                                       TextWrapping="Wrap">
-                                                <TextBlock.Text>
-                                                    <Binding Path="SelectedRecord.WindowTitle"
-                                                             TargetNullValue="未获取窗口标题"
-                                                             StringFormat="{}{0}" />
-                                                </TextBlock.Text>
-                                            </TextBlock>
-                                            <TextBlock Text="进程名称"
-                                                       FontWeight="SemiBold"
-                                                       FontSize="13"
-                                                       Foreground="#1F2433"
-                                                       Margin="0,8,0,0" />
-                                            <TextBlock FontSize="12"
-                                                       Foreground="#2E3554"
-                                                       TextWrapping="Wrap">
-                                                <TextBlock.Text>
-                                                    <Binding Path="SelectedRecord.ProcessName"
-                                                             TargetNullValue="未获取进程名称"
-                                                             StringFormat="{}{0}" />
-                                                </TextBlock.Text>
-                                            </TextBlock>
-                                        </StackPanel>
-                                    </Border>
                                     <Border Background="#F0F4FF"
                                             CornerRadius="10"
                                             Padding="12"

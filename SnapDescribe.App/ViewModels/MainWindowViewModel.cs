@@ -649,6 +649,7 @@ public partial class MainWindowViewModel : ObservableObject
         return text
             .Replace("begin_of_box", string.Empty, StringComparison.OrdinalIgnoreCase)
             .Replace("end_of_box", string.Empty, StringComparison.OrdinalIgnoreCase)
+            .Replace("<||>", string.Empty, StringComparison.OrdinalIgnoreCase)
             .Trim();
     }
 

@@ -1,4 +1,6 @@
 using System;
+using System.Diagnostics;
+using System.IO;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
@@ -14,6 +16,13 @@ namespace SnapDescribe.App.Views;
 
 public sealed class RegionSelectionWindow : Window
 {
+    private static readonly string[] IgnoredProcessNames =
+    {
+        "snapdescribe.exe",
+        "snapdescribe.app.exe",
+        "cgedata.exe"
+    };
+
     private readonly Canvas _overlayCanvas;
     private readonly Border _selectionBorder;
     private readonly Border _hoverBorder;
@@ -158,7 +167,10 @@ public sealed class RegionSelectionWindow : Window
                 if (rect.Width >= 4 && rect.Height >= 4)
                 {
                     var screenRect = new PixelRect(_screenOrigin.X + rect.X, _screenOrigin.Y + rect.Y, rect.Width, rect.Height);
-                    result = new SelectionResult(rect, screenRect, false, IntPtr.Zero);
+                    var handle = TryGetDominantWindow(screenRect, out var matchedHandle)
+                        ? matchedHandle
+                        : IntPtr.Zero;
+                    result = new SelectionResult(rect, screenRect, false, handle);
                 }
             }
             else if (_hoverWindowRect is { Width: >= 4, Height: >= 4 } hoverRect &&
@@ -268,6 +280,11 @@ public sealed class RegionSelectionWindow : Window
                     return true;
                 }
 
+                if (ShouldSkipWindow(hwnd))
+                {
+                    return true;
+                }
+
                 var area = (double)width * height;
                 if (area >= bestArea)
                 {
@@ -305,6 +322,85 @@ public sealed class RegionSelectionWindow : Window
         return false;
     }
 
+    private bool TryGetDominantWindow(PixelRect screenRect, out IntPtr handle)
+    {
+        handle = IntPtr.Zero;
+
+        if (screenRect.Width <= 0 || screenRect.Height <= 0)
+        {
+            return false;
+        }
+
+        var selectionLeft = screenRect.X;
+        var selectionTop = screenRect.Y;
+        var selectionRight = screenRect.X + screenRect.Width;
+        var selectionBottom = screenRect.Y + screenRect.Height;
+        var overlayHandle = this.TryGetPlatformHandle()?.Handle ?? IntPtr.Zero;
+        var bestArea = 0L;
+        var bestHandle = IntPtr.Zero;
+
+        Native.EnumWindows((hwnd, _) =>
+        {
+            if (hwnd == overlayHandle)
+            {
+                return true;
+            }
+
+            if (!Native.IsWindowVisible(hwnd) || Native.IsIconic(hwnd))
+            {
+                return true;
+            }
+
+            if (!Native.GetWindowRect(hwnd, out var windowRect))
+            {
+                return true;
+            }
+
+            var width = windowRect.Right - windowRect.Left;
+            var height = windowRect.Bottom - windowRect.Top;
+            if (width <= 0 || height <= 0)
+            {
+                return true;
+            }
+
+            var className = Native.GetWindowClassName(hwnd);
+            if (className is "Progman" or "WorkerW" or "Shell_TrayWnd" or "Shell_SecondaryTrayWnd")
+            {
+                return true;
+            }
+
+            if (ShouldSkipWindow(hwnd))
+            {
+                return true;
+            }
+
+            var overlapLeft = Math.Max(selectionLeft, windowRect.Left);
+            var overlapTop = Math.Max(selectionTop, windowRect.Top);
+            var overlapRight = Math.Min(selectionRight, windowRect.Right);
+            var overlapBottom = Math.Min(selectionBottom, windowRect.Bottom);
+
+            var overlapWidth = overlapRight - overlapLeft;
+            var overlapHeight = overlapBottom - overlapTop;
+            if (overlapWidth <= 0 || overlapHeight <= 0)
+            {
+                return true;
+            }
+
+            var overlapArea = (long)overlapWidth * overlapHeight;
+            if (overlapArea <= bestArea)
+            {
+                return true;
+            }
+
+            bestArea = overlapArea;
+            bestHandle = hwnd;
+            return true;
+        }, IntPtr.Zero);
+
+        handle = bestHandle;
+        return handle != IntPtr.Zero;
+    }
+
     private PixelRect ClampToOverlay(PixelRect rect)
     {
         var maxWidth = Math.Max(0, (int)Math.Round(Bounds.Width));
@@ -336,6 +432,78 @@ public sealed class RegionSelectionWindow : Window
         return Math.Sqrt(dx * dx + dy * dy);
     }
 
+    private static bool ShouldSkipWindow(IntPtr hwnd)
+    {
+        if (hwnd == IntPtr.Zero)
+        {
+            return true;
+        }
+
+        if (!TryGetProcessName(hwnd, out var processName) || string.IsNullOrWhiteSpace(processName))
+        {
+            return false;
+        }
+
+        foreach (var ignored in IgnoredProcessNames)
+        {
+            if (string.Equals(processName, ignored, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool TryGetProcessName(IntPtr hwnd, out string? processName)
+    {
+        processName = null;
+
+        if (hwnd == IntPtr.Zero)
+        {
+            return false;
+        }
+
+        if (Native.GetWindowThreadProcessId(hwnd, out var processId) == 0 || processId == 0)
+        {
+            return false;
+        }
+
+        try
+        {
+            using var process = Process.GetProcessById((int)processId);
+            try
+            {
+                var fileName = process.MainModule?.FileName;
+                if (!string.IsNullOrWhiteSpace(fileName))
+                {
+                    processName = Path.GetFileName(fileName);
+                }
+            }
+            catch
+            {
+                // 同一进程下部分模块可能无权限读取，忽略并尝试使用 ProcessName。
+            }
+
+            if (string.IsNullOrWhiteSpace(processName))
+            {
+                var name = process.ProcessName;
+                if (!string.IsNullOrWhiteSpace(name))
+                {
+                    processName = name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)
+                        ? name
+                        : name + ".exe";
+                }
+            }
+        }
+        catch
+        {
+            return false;
+        }
+
+        return !string.IsNullOrWhiteSpace(processName);
+    }
+
     private static class Native
     {
         public delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
@@ -357,6 +525,9 @@ public sealed class RegionSelectionWindow : Window
 
         [DllImport("user32.dll", CharSet = CharSet.Unicode)]
         public static extern int GetClassName(IntPtr hWnd, System.Text.StringBuilder lpClassName, int nMaxCount);
+
+        [DllImport("user32.dll")]
+        public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint processId);
 
         public static string GetWindowClassName(IntPtr hWnd)
         {

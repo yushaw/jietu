@@ -24,6 +24,13 @@ namespace SnapDescribe.App.Services;
 [SupportedOSPlatform("windows")]
 public class ScreenshotService : IScreenshotService
 {
+    private static readonly string[] IgnoredProcessNames =
+    {
+        "snapdescribe.exe",
+        "snapdescribe.app.exe",
+        "cgedata.exe"
+    };
+
     public async Task<ScreenshotResult?> CaptureInteractiveAsync()
     {
         EnsureWindows();
@@ -93,9 +100,9 @@ public class ScreenshotService : IScreenshotService
 
     private static (string? ProcessName, string? WindowTitle) ResolveWindowMetadata(SelectionResult selection)
     {
-        if (selection.IsWindowSelection && selection.WindowHandle != IntPtr.Zero)
+        if (selection.WindowHandle != IntPtr.Zero)
         {
-            if (TryGetWindowMetadata(selection.WindowHandle, out var metadata))
+            if (TryGetWindowMetadata(selection.WindowHandle, out var metadata) && !IsIgnoredProcess(metadata.ProcessName))
             {
                 return metadata;
             }
@@ -139,7 +146,18 @@ public class ScreenshotService : IScreenshotService
             return false;
         }
 
-        return TryGetWindowMetadata(handle, out metadata);
+        if (!TryGetWindowMetadata(handle, out metadata))
+        {
+            return false;
+        }
+
+        if (IsIgnoredProcess(metadata.ProcessName))
+        {
+            metadata = default;
+            return false;
+        }
+
+        return true;
     }
 
     private static bool TryResolveMetadataFromOverlap(PixelRect rect, out (string? ProcessName, string? WindowTitle) metadata)
@@ -148,6 +166,7 @@ public class ScreenshotService : IScreenshotService
 
         var bestArea = 0L;
         var bestHandle = IntPtr.Zero;
+        (string? ProcessName, string? WindowTitle)? bestMetadata = null;
         var selectionRight = rect.X + rect.Width;
         var selectionBottom = rect.Y + rect.Height;
 
@@ -199,17 +218,47 @@ public class ScreenshotService : IScreenshotService
                 return true;
             }
 
+            if (!TryGetWindowMetadata(hwnd, out var candidateMetadata))
+            {
+                return true;
+            }
+
+            if (IsIgnoredProcess(candidateMetadata.ProcessName))
+            {
+                return true;
+            }
+
             bestArea = overlapArea;
             bestHandle = hwnd;
+            bestMetadata = candidateMetadata;
             return true;
         }, IntPtr.Zero);
 
-        if (bestHandle == IntPtr.Zero)
+        if (bestHandle == IntPtr.Zero || bestMetadata is null)
         {
             return false;
         }
 
-        return TryGetWindowMetadata(bestHandle, out metadata);
+        metadata = bestMetadata.Value;
+        return true;
+    }
+
+    private static bool IsIgnoredProcess(string? processName)
+    {
+        if (string.IsNullOrWhiteSpace(processName))
+        {
+            return false;
+        }
+
+        foreach (var ignored in IgnoredProcessNames)
+        {
+            if (string.Equals(processName, ignored, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static bool TryGetWindowMetadata(IntPtr hwnd, out (string? ProcessName, string? WindowTitle) metadata)
