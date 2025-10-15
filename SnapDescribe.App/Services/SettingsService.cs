@@ -57,17 +57,42 @@ public class SettingsService
     };
 
     private readonly string _settingsPath;
+    private readonly string _appDataRoot;
+    private readonly string _picturesRoot;
     private AppSettings _current;
 
-    public SettingsService()
+    public SettingsService(string? appDataPath = null, string? picturesPath = null)
     {
-        var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-        var settingsFolder = Path.Combine(appData, "SnapDescribe");
+        _appDataRoot = !string.IsNullOrWhiteSpace(appDataPath)
+            ? appDataPath
+            : Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+
+        if (string.IsNullOrWhiteSpace(_appDataRoot))
+        {
+            throw new InvalidOperationException("Unable to resolve application data directory.");
+        }
+
+        _picturesRoot = !string.IsNullOrWhiteSpace(picturesPath)
+            ? picturesPath
+            : Environment.GetFolderPath(Environment.SpecialFolder.MyPictures);
+
+        if (string.IsNullOrWhiteSpace(_picturesRoot))
+        {
+            throw new InvalidOperationException("Unable to resolve pictures directory.");
+        }
+
+        var settingsFolder = Path.Combine(_appDataRoot, "SnapDescribe");
         Directory.CreateDirectory(settingsFolder);
 
         _settingsPath = Path.Combine(settingsFolder, "settings.json");
         var settingsExists = File.Exists(_settingsPath);
         _current = LoadSettings(_settingsPath) ?? new AppSettings();
+
+        if (!settingsExists)
+        {
+            _current.OutputDirectory = Path.Combine(_picturesRoot, "SnapDescribe");
+        }
+
         EnsureLanguage(!settingsExists);
         EnsurePromptRules();
         EnsureOutputDirectory();
@@ -87,8 +112,7 @@ public class SettingsService
     {
         if (string.IsNullOrWhiteSpace(_current.OutputDirectory))
         {
-            _current.OutputDirectory = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.MyPictures), "SnapDescribe");
+            _current.OutputDirectory = Path.Combine(_picturesRoot, "SnapDescribe");
         }
 
         Directory.CreateDirectory(_current.OutputDirectory);

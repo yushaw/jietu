@@ -30,7 +30,9 @@ public class ScreenshotService : IScreenshotService
         "snapdescribe.app.exe",
         "cgedata.exe",
         "hpaudiocontrol.exe",
-        "hpaudiocontrol"
+        "hpaudiocontrol",
+        "textinputhost.exe",
+        "textinputhost"
     };
 
     public async Task<ScreenshotResult?> CaptureInteractiveAsync()
