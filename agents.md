@@ -52,6 +52,24 @@ When introducing a new agent or capability:
 - Provide quick actions in the ResultDialog to re-run or refine agent steps.
 - When agents modify files, surface diffs or summaries before applying changes.
 
+## Current Implementation Snapshot (October 2025)
+
+- **Capability plumbing**: `CapabilityIds.Agent` resolves to `AgentExecutionService`, which chains auto-run tools (`ShellAgentToolRunner`) and GLM chat while logging every step back into `CaptureRecord` and persisted transcripts.
+- **Settings & persistence**: `AgentSettings` (on `AppSettings.Agent`) stores the global toggle plus a collection of agent profiles (`AgentProfile`). Each profile carries its own prompt, flags, and tool list. Everything is persisted to `%APPDATA%/SnapDescribe/settings.json`.
+- **UI entry points**: *Settings → 智能体编排*（Agent Orchestration）标签页提供左侧的智能体列表与右侧的详细编辑器，支持新增/复制/删除智能体、管理提示词及工具链。*Settings → Trigger Rules* 里的规则在选择 “Autogen Agent Pipeline” 后，可指定具体智能体。
+- **Conversation surface**: Tool outputs appear as dedicated `tool` messages in ResultDialog, immediately followed by the synthesized assistant reply. Follow-up prompts reuse the same orchestration path.
+- **Testing**: `AgentExecutionServiceTests` cover message ordering, tool-output inclusion, and payload composition; integration UI flows remain manual.
+- **Known limitations**: Only single-machine CLI tools are supported; MCP adapters, remote executors, multiple interacting agents, and richer error recovery are still on the roadmap.
+
+## Configuration Walkthrough (Preview)
+
+1. **Enable orchestration & create agents** – open *Settings → 智能体编排*，勾选 “启用智能体编排”，在左侧列表中新增智能体，右侧面板可编辑系统提示词、工具链及工具运行策略。
+2. **Configure tools** – “新增工具” 支持命令行或脚本调用，参数模板同样接受 `{prompt}`、`{message}`、`{imagePath}`、`{processName}`、`{timestamp}` 等占位符，超时时间默认 30 秒。
+3. **Assign via rules** – in *Settings → Trigger Rules* select “Autogen Agent Pipeline” and choose the desired agent profile from the dropdown. Key/value parameters remain available for advanced scenarios.
+4. **Run & iterate** – once a capture matches the rule, SnapDescribe executes the agent’s auto-run tools, appends outputs to the conversation, and invokes GLM for the final response. Use follow-up chat to re-run the pipeline with new prompts.
+
+> Disable the preview at any time by unchecking the toggle in the Agent Orchestration tab; rules automatically fall back to the standard language model capability.
+
 ## Security & Privacy
 
 - Never send sensitive disk paths or full clipboard contents to external endpoints without explicit user consent.

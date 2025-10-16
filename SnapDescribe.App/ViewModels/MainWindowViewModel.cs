@@ -42,6 +42,7 @@ public partial class MainWindowViewModel : ObservableObject
     private readonly DispatcherTimer _statusTimer;
     private bool _historyLoaded;
     private const string MetadataExtension = ".json";
+    private const string AgentParameterKey = "agentId";
     private static readonly JsonSerializerOptions HistoryJsonOptions = new(JsonSerializerDefaults.Web)
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
@@ -52,10 +53,10 @@ public partial class MainWindowViewModel : ObservableObject
     private int _captureHotkeyId = -1;
     private PromptRule? _subscribedPromptRule;
     private readonly List<CapabilityParameter> _observedParameters = new();
+    private bool _updatingAgentSelection;
 
     public event EventHandler<CaptureRecord>? CaptureCompleted;
     public event EventHandler<bool>? RequestMainWindowVisibility;
-    public event EventHandler? AgentSettingsRequested;
 
     [ObservableProperty]
     private CaptureRecord? selectedRecord;
@@ -77,6 +78,9 @@ public partial class MainWindowViewModel : ObservableObject
 
     [ObservableProperty]
     private bool canSavePromptRule;
+
+    [ObservableProperty]
+    private AgentProfile? selectedAgentProfileForRule;
 
     public bool HasStatusMessage => !string.IsNullOrWhiteSpace(StatusMessage);
 
@@ -125,11 +129,15 @@ public partial class MainWindowViewModel : ObservableObject
         SavePromptRulesCommand = _savePromptRulesCommand;
         AddCapabilityParameterCommand = _addParameterCommand;
         RemoveCapabilityParameterCommand = _removeParameterCommand;
-        OpenAgentSettingsCommand = new RelayCommand(() => AgentSettingsRequested?.Invoke(this, EventArgs.Empty));
+
+        AgentSettingsEditor = new AgentSettingsViewModel(_settingsService, _localization);
+        AgentSettingsEditor.Saved += OnAgentSettingsSaved;
 
         History = new ObservableCollection<CaptureRecord>();
         CapabilityOptions = new ObservableCollection<CapabilityOption>();
         RefreshCapabilityOptions();
+        EnsureAgentAssignments();
+        UpdateSelectedAgentProfileForRule();
 
         try
         {
@@ -218,7 +226,11 @@ public partial class MainWindowViewModel : ObservableObject
 
     public IRelayCommand RemoveCapabilityParameterCommand { get; }
 
-    public IRelayCommand OpenAgentSettingsCommand { get; }
+    public AgentSettingsViewModel AgentSettingsEditor { get; }
+
+    private static readonly ObservableCollection<AgentProfile> EmptyAgentProfiles = new();
+
+    public ObservableCollection<AgentProfile> AgentProfiles => Settings.Agent?.Profiles ?? EmptyAgentProfiles;
 
     public string? SelectedMarkdownForCopy => SelectedRecord?.ResponseMarkdown;
 
@@ -227,6 +239,8 @@ public partial class MainWindowViewModel : ObservableObject
     public bool NoPromptRuleSelected => SelectedPromptRule is null;
 
     public bool ShowCapabilityParameters => SelectedPromptRule is not null && !IsSelectedCapabilityLanguageModel && !IsSelectedCapabilityAgent && !IsSelectedCapabilityOcr;
+
+    public bool ShowAgentSelector => IsSelectedCapabilityAgent;
 
     public bool ShowCapabilityParameterHint => ShowCapabilityParameters && (SelectedPromptRule?.Parameters.Count ?? 0) == 0;
 
@@ -250,6 +264,24 @@ public partial class MainWindowViewModel : ObservableObject
         OnPropertyChanged(nameof(ShowCapabilityPlaceholder));
         OnPropertyChanged(nameof(ShowCapabilityParameters));
         OnPropertyChanged(nameof(ShowCapabilityParameterHint));
+        OnPropertyChanged(nameof(ShowAgentSelector));
+        UpdateSelectedAgentProfileForRule();
+        UpdatePromptRuleValidation();
+    }
+
+    partial void OnSelectedAgentProfileForRuleChanged(AgentProfile? value)
+    {
+        if (_updatingAgentSelection)
+        {
+            return;
+        }
+
+        if (SelectedPromptRule is null)
+        {
+            return;
+        }
+
+        SetAgentParameter(SelectedPromptRule, value?.Id);
         UpdatePromptRuleValidation();
     }
 
@@ -426,6 +458,8 @@ public partial class MainWindowViewModel : ObservableObject
         var isLanguageModel = string.Equals(plan.CapabilityId, CapabilityIds.LanguageModel, StringComparison.OrdinalIgnoreCase);
         var isAgentCapability = string.Equals(plan.CapabilityId, CapabilityIds.Agent, StringComparison.OrdinalIgnoreCase);
         var isOcr = string.Equals(plan.CapabilityId, CapabilityIds.Ocr, StringComparison.OrdinalIgnoreCase);
+        AgentProfile? agentProfile = isAgentCapability ? ResolveAgentProfile(plan) : null;
+
         var initialResponse = isLanguageModel
             ? _localization.GetString("Response.Generating")
             : isAgentCapability
@@ -447,7 +481,8 @@ public partial class MainWindowViewModel : ObservableObject
             Preview = result.Preview,
             ResponseMarkdown = initialResponse,
             IsLoading = isLanguageModel || isAgentCapability || isOcr,
-            ImageBytes = result.PngBytes
+            ImageBytes = result.PngBytes,
+            AgentProfileId = agentProfile?.Id
         };
 
         if (isLanguageModel)
@@ -476,13 +511,27 @@ public partial class MainWindowViewModel : ObservableObject
             CaptureCompleted?.Invoke(this, record);
         });
 
+        if (isAgentCapability && agentProfile is null)
+        {
+            var unavailable = _localization.GetString("Status.AgentUnavailable");
+            await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                record.ResponseMarkdown = unavailable;
+                record.IsLoading = false;
+            });
+            await File.WriteAllTextAsync(markdownPath, BuildConversationMarkdown(record), Encoding.UTF8);
+            await SaveRecordMetadataAsync(record);
+            SetStatusFromResource("Status.AgentFailed");
+            return;
+        }
+
         if (isLanguageModel)
         {
             await ExecuteLanguageModelCapabilityAsync(record, markdownPath);
         }
         else if (isAgentCapability)
         {
-            await ExecuteAgentCapabilityAsync(record, markdownPath, prompt);
+            await ExecuteAgentCapabilityAsync(record, agentProfile!, markdownPath, prompt);
         }
         else if (isOcr)
         {
@@ -533,12 +582,12 @@ public partial class MainWindowViewModel : ObservableObject
         await SaveRecordMetadataAsync(record);
     }
 
-    private async Task ExecuteAgentCapabilityAsync(CaptureRecord record, string markdownPath, string prompt)
+    private async Task ExecuteAgentCapabilityAsync(CaptureRecord record, AgentProfile profile, string markdownPath, string prompt)
     {
         var success = false;
         try
         {
-            var result = await _agentExecutionService.ExecuteAsync(Settings, record, prompt, includeImage: true);
+            var result = await _agentExecutionService.ExecuteAsync(Settings, profile, record, prompt, includeImage: true);
 
             await Dispatcher.UIThread.InvokeAsync(() =>
             {
@@ -740,9 +789,26 @@ public partial class MainWindowViewModel : ObservableObject
             }
         }
 
+        var profile = GetAgentProfileById(record.AgentProfileId);
+        if (profile is null)
+        {
+            var unavailable = _localization.GetString("Status.AgentUnavailable");
+            await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                record.Conversation.Add(new ChatMessage("assistant", unavailable));
+                record.ResponseMarkdown = unavailable;
+                record.IsLoading = false;
+                SetStatusFromResource("Status.AgentFailed");
+            });
+            await SaveRecordMetadataAsync(record);
+            return;
+        }
+
+        record.AgentProfileId = profile.Id;
+
         try
         {
-            var result = await _agentExecutionService.ContinueAsync(Settings, record, userMessage);
+            var result = await _agentExecutionService.ContinueAsync(Settings, profile, record, userMessage);
 
             await Dispatcher.UIThread.InvokeAsync(() =>
             {
@@ -940,7 +1006,7 @@ public partial class MainWindowViewModel : ObservableObject
         var options = new List<CapabilityOption>
         {
             new CapabilityOption(CapabilityIds.LanguageModel, _localization.GetString("Capability.LanguageModel"), isAvailable: true),
-            new CapabilityOption(CapabilityIds.Agent, _localization.GetString("Capability.Agent"), Settings.Agent?.IsEnabled ?? false),
+            new CapabilityOption(CapabilityIds.Agent, _localization.GetString("Capability.Agent"), (Settings.Agent?.IsEnabled ?? false) && (Settings.Agent?.Profiles?.Count > 0)),
             new CapabilityOption(CapabilityIds.ExternalTool, _localization.GetString("Capability.ExternalTool"), isAvailable: false),
             new CapabilityOption(CapabilityIds.Ocr, _localization.GetString("Capability.Ocr"), _ocrService.IsAvailable)
         };
@@ -959,6 +1025,8 @@ public partial class MainWindowViewModel : ObservableObject
         OnPropertyChanged(nameof(ShowCapabilityPlaceholder));
         OnPropertyChanged(nameof(ShowCapabilityParameters));
         OnPropertyChanged(nameof(ShowCapabilityParameterHint));
+        OnPropertyChanged(nameof(ShowAgentSelector));
+        OnPropertyChanged(nameof(AgentProfiles));
     }
 
     private void SavePromptRules()
@@ -997,8 +1065,22 @@ public partial class MainWindowViewModel : ObservableObject
             return false;
         }
 
-        return !string.Equals(SelectedPromptRule.CapabilityId, CapabilityIds.LanguageModel, StringComparison.OrdinalIgnoreCase)
-               || !string.IsNullOrWhiteSpace(SelectedPromptRule.Prompt);
+        if (string.Equals(SelectedPromptRule.CapabilityId, CapabilityIds.LanguageModel, StringComparison.OrdinalIgnoreCase))
+        {
+            return !string.IsNullOrWhiteSpace(SelectedPromptRule.Prompt);
+        }
+
+        if (string.Equals(SelectedPromptRule.CapabilityId, CapabilityIds.Agent, StringComparison.OrdinalIgnoreCase))
+        {
+            if (!(Settings.Agent?.IsEnabled ?? false))
+            {
+                return false;
+            }
+
+            return SelectedAgentProfileForRule is not null;
+        }
+
+        return true;
     }
 
     private void UpdatePromptRuleValidation()
@@ -1051,7 +1133,9 @@ public partial class MainWindowViewModel : ObservableObject
             OnPropertyChanged(nameof(IsSelectedCapabilityOcr));
             OnPropertyChanged(nameof(ShowCapabilityParameters));
             OnPropertyChanged(nameof(ShowCapabilityParameterHint));
+            OnPropertyChanged(nameof(ShowAgentSelector));
             _addParameterCommand.NotifyCanExecuteChanged();
+            UpdateSelectedAgentProfileForRule();
         }
     }
 
@@ -1078,6 +1162,7 @@ public partial class MainWindowViewModel : ObservableObject
         OnPropertyChanged(nameof(ShowCapabilityParameterHint));
         UpdatePromptRuleValidation();
         UpdatePromptRuleCommandStates();
+        UpdateSelectedAgentProfileForRule();
     }
 
     private void CapabilityParameterOnPropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -1085,6 +1170,148 @@ public partial class MainWindowViewModel : ObservableObject
         if (e.PropertyName is nameof(CapabilityParameter.Key) or nameof(CapabilityParameter.Value))
         {
             UpdatePromptRuleValidation();
+            if (sender is CapabilityParameter parameter && string.Equals(parameter.Key, AgentParameterKey, StringComparison.OrdinalIgnoreCase))
+            {
+                UpdateSelectedAgentProfileForRule();
+            }
+        }
+    }
+
+    private void UpdateSelectedAgentProfileForRule()
+    {
+        if (SelectedPromptRule is null)
+        {
+            return;
+        }
+
+        if (!IsSelectedCapabilityAgent)
+        {
+            _updatingAgentSelection = true;
+            SelectedAgentProfileForRule = null;
+            _updatingAgentSelection = false;
+            SetAgentParameter(SelectedPromptRule, null);
+            return;
+        }
+
+        var agentId = GetAgentParameter(SelectedPromptRule);
+        var profile = GetAgentProfileById(agentId) ?? AgentProfiles.FirstOrDefault();
+
+        _updatingAgentSelection = true;
+        SelectedAgentProfileForRule = profile;
+        _updatingAgentSelection = false;
+
+        if (profile is not null)
+        {
+            SetAgentParameter(SelectedPromptRule, profile.Id);
+        }
+    }
+
+    private string? GetAgentParameter(PromptRule rule)
+    {
+        var parameter = rule.Parameters.FirstOrDefault(p => string.Equals(p.Key, AgentParameterKey, StringComparison.OrdinalIgnoreCase));
+        return parameter?.Value;
+    }
+
+    private void SetAgentParameter(PromptRule rule, string? agentId)
+    {
+        var existing = rule.Parameters.FirstOrDefault(p => string.Equals(p.Key, AgentParameterKey, StringComparison.OrdinalIgnoreCase));
+
+        if (string.IsNullOrWhiteSpace(agentId))
+        {
+            if (existing is not null)
+            {
+                rule.Parameters.Remove(existing);
+            }
+            return;
+        }
+
+        if (existing is null)
+        {
+            existing = new CapabilityParameter
+            {
+                Key = AgentParameterKey,
+                Value = agentId
+            };
+            rule.Parameters.Add(existing);
+        }
+        else
+        {
+            existing.Value = agentId;
+        }
+    }
+
+    private AgentProfile? GetAgentProfileById(string? agentId)
+    {
+        var agentSettings = Settings.Agent;
+        if (agentSettings?.Profiles is not { Count: > 0 })
+        {
+            return null;
+        }
+
+        if (!string.IsNullOrWhiteSpace(agentId))
+        {
+            var match = agentSettings.Profiles.FirstOrDefault(profile => string.Equals(profile.Id, agentId, StringComparison.OrdinalIgnoreCase));
+            if (match is not null)
+            {
+                return match;
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(agentSettings.DefaultProfileId))
+        {
+            var fallback = agentSettings.Profiles.FirstOrDefault(profile => string.Equals(profile.Id, agentSettings.DefaultProfileId, StringComparison.OrdinalIgnoreCase));
+            if (fallback is not null)
+            {
+                return fallback;
+            }
+        }
+
+        return agentSettings.Profiles[0];
+    }
+
+    private AgentProfile? ResolveAgentProfile(CapabilityInvocationPlan plan)
+    {
+        if (!(Settings.Agent?.IsEnabled ?? false))
+        {
+            return null;
+        }
+
+        var agentId = plan.GetParameter(AgentParameterKey);
+        return GetAgentProfileById(agentId);
+    }
+
+    private void OnAgentSettingsSaved(object? sender, EventArgs e)
+    {
+        AgentSettingsEditor.ResetCommand.Execute(null);
+        EnsureAgentAssignments();
+        RefreshCapabilityOptions();
+        OnPropertyChanged(nameof(AgentProfiles));
+        UpdateSelectedAgentProfileForRule();
+    }
+
+    private void EnsureAgentAssignments()
+    {
+        if (Settings.Agent?.Profiles is not { Count: > 0 })
+        {
+            return;
+        }
+
+        foreach (var rule in Settings.PromptRules)
+        {
+            if (!string.Equals(rule.CapabilityId, CapabilityIds.Agent, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            var profile = GetAgentProfileById(GetAgentParameter(rule));
+            if (profile is null)
+            {
+                var fallback = GetAgentProfileById(null);
+                if (fallback is not null)
+                {
+                    SetAgentParameter(rule, fallback.Id);
+                }
+            }
         }
     }
 
@@ -1678,10 +1905,6 @@ public partial class MainWindowViewModel : ObservableObject
         RefreshCapabilityOptions();
     }
 
-    public void RefreshAgentAvailability()
-    {
-        RefreshCapabilityOptions();
-    }
 
     private void SetStatus(string message, bool autoClear = true)
     {

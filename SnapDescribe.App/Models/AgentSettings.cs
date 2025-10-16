@@ -5,21 +5,20 @@ namespace SnapDescribe.App.Models;
 
 public partial class AgentSettings : ObservableObject
 {
-    private const string DefaultSystemPrompt =
-        "You are SnapDescribe Agent. Combine the screenshot analysis with any provided tool outputs to produce a concise, actionable summary.";
-
     [ObservableProperty]
     private bool isEnabled;
 
     [ObservableProperty]
-    private string systemPrompt = DefaultSystemPrompt;
+    private string? defaultProfileId;
 
-    [ObservableProperty]
-    private bool runToolsBeforeModel = true;
+    public ObservableCollection<AgentProfile> Profiles { get; set; } = new();
 
-    [ObservableProperty]
-    private bool includeToolOutputInResponse = true;
+    // Legacy fields (pre-multi-agent). Used to migrate existing settings.
+    public string? SystemPrompt { get; set; }
 
-    [ObservableProperty]
-    private ObservableCollection<AgentTool> tools = new();
+    public bool? RunToolsBeforeModel { get; set; }
+
+    public bool? IncludeToolOutputInResponse { get; set; }
+
+    public ObservableCollection<AgentTool>? Tools { get; set; }
 }

@@ -208,31 +208,120 @@ public class SettingsService
             changed = true;
         }
 
-        if (_current.Agent.Tools is null)
+        var agent = _current.Agent;
+
+        agent.Profiles ??= new ObservableCollection<AgentProfile>();
+
+        for (var i = agent.Profiles.Count - 1; i >= 0; i--)
         {
-            _current.Agent.Tools = new ObservableCollection<AgentTool>();
+            if (agent.Profiles[i] is null)
+            {
+                agent.Profiles.RemoveAt(i);
+                changed = true;
+            }
+        }
+
+        if (agent.Profiles.Count == 0)
+        {
+            var profile = CreateProfileFromLegacy(agent);
+            agent.Profiles.Add(profile);
+            agent.DefaultProfileId = profile.Id;
             changed = true;
         }
 
-        foreach (var tool in _current.Agent.Tools)
+        foreach (var profile in agent.Profiles)
         {
-            if (string.IsNullOrWhiteSpace(tool.Id))
+            if (string.IsNullOrWhiteSpace(profile.Id))
             {
-                tool.Id = Guid.NewGuid().ToString("N");
+                profile.Id = Guid.NewGuid().ToString("N");
                 changed = true;
             }
 
-            if (tool.TimeoutSeconds <= 0)
+            if (string.IsNullOrWhiteSpace(profile.Name))
             {
-                tool.TimeoutSeconds = 30;
+                profile.Name = "Agent";
                 changed = true;
             }
+
+            profile.Tools ??= new ObservableCollection<AgentTool>();
+            foreach (var tool in profile.Tools)
+            {
+                if (string.IsNullOrWhiteSpace(tool.Id))
+                {
+                    tool.Id = Guid.NewGuid().ToString("N");
+                    changed = true;
+                }
+
+                if (tool.TimeoutSeconds <= 0)
+                {
+                    tool.TimeoutSeconds = 30;
+                    changed = true;
+                }
+            }
+        }
+
+        if (string.IsNullOrWhiteSpace(agent.DefaultProfileId) || agent.Profiles.All(p => !string.Equals(p.Id, agent.DefaultProfileId, StringComparison.OrdinalIgnoreCase)))
+        {
+            agent.DefaultProfileId = agent.Profiles[0].Id;
+            changed = true;
+        }
+
+        if (agent.SystemPrompt is not null || agent.Tools is not null || agent.RunToolsBeforeModel is not null || agent.IncludeToolOutputInResponse is not null)
+        {
+            agent.SystemPrompt = null;
+            agent.Tools = null;
+            agent.RunToolsBeforeModel = null;
+            agent.IncludeToolOutputInResponse = null;
+            changed = true;
         }
 
         if (changed)
         {
             Save();
         }
+    }
+
+    private static AgentProfile CreateProfileFromLegacy(AgentSettings agent)
+    {
+        var profile = new AgentProfile
+        {
+            Name = "Default Agent",
+            Description = string.Empty
+        };
+
+        if (!string.IsNullOrWhiteSpace(agent.SystemPrompt))
+        {
+            profile.SystemPrompt = agent.SystemPrompt;
+        }
+
+        if (agent.RunToolsBeforeModel is bool runTools)
+        {
+            profile.RunToolsBeforeModel = runTools;
+        }
+
+        if (agent.IncludeToolOutputInResponse is bool includeOutput)
+        {
+            profile.IncludeToolOutputInResponse = includeOutput;
+        }
+
+        var tools = agent.Tools ?? new ObservableCollection<AgentTool>();
+        profile.Tools.Clear();
+        foreach (var tool in tools)
+        {
+            var cloned = new AgentTool
+            {
+                Id = string.IsNullOrWhiteSpace(tool.Id) ? Guid.NewGuid().ToString("N") : tool.Id,
+                Name = tool.Name,
+                Description = tool.Description,
+                Command = tool.Command,
+                ArgumentsTemplate = tool.ArgumentsTemplate,
+                AutoRun = tool.AutoRun,
+                TimeoutSeconds = tool.TimeoutSeconds <= 0 ? 30 : tool.TimeoutSeconds
+            };
+            profile.Tools.Add(cloned);
+        }
+
+        return profile;
     }
 
     private void EnsureDefaultPromptRules()

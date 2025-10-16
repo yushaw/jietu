@@ -21,10 +21,11 @@ public class AgentExecutionServiceTests
         var toolRunner = new FakeToolRunner();
         var service = new AgentExecutionService(aiClient, toolRunner, localization);
 
-        var settings = CreateSettings(includeToolOutput: true);
+        var (settings, profile) = CreateSettings(includeToolOutput: true);
         var record = CreateRecord();
+        record.AgentProfileId = profile.Id;
 
-        var result = await service.ExecuteAsync(settings, record, "describe screenshot", includeImage: true);
+        var result = await service.ExecuteAsync(settings, profile, record, "describe screenshot", includeImage: true);
 
         Assert.Equal("assistant reply", result.Response);
         Assert.Collection(result.MessagesToAppend,
@@ -47,16 +48,17 @@ public class AgentExecutionServiceTests
         var toolRunner = new FakeToolRunner();
         var service = new AgentExecutionService(aiClient, toolRunner, localization);
 
-        var settings = CreateSettings(includeToolOutput: false);
+        var (settings, profile) = CreateSettings(includeToolOutput: false);
         var record = CreateRecord();
+        record.AgentProfileId = profile.Id;
 
-        await service.ExecuteAsync(settings, record, "follow up", includeImage: true);
+        await service.ExecuteAsync(settings, profile, record, "follow up", includeImage: true);
 
         Assert.NotNull(aiClient.LastConversation);
         Assert.DoesNotContain(aiClient.LastConversation!, message => message.Content.Contains("Tool:"));
     }
 
-    private static AppSettings CreateSettings(bool includeToolOutput)
+    private static (AppSettings Settings, AgentProfile Profile) CreateSettings(bool includeToolOutput)
     {
         var tool = new AgentTool
         {
@@ -68,17 +70,27 @@ public class AgentExecutionServiceTests
             TimeoutSeconds = 10
         };
 
-        return new AppSettings
+        var profile = new AgentProfile
+        {
+            Name = "Test Agent",
+            SystemPrompt = "system prompt",
+            RunToolsBeforeModel = true,
+            IncludeToolOutputInResponse = includeToolOutput
+        };
+        profile.Tools.Clear();
+        profile.Tools.Add(tool);
+
+        var settings = new AppSettings
         {
             Agent = new AgentSettings
             {
                 IsEnabled = true,
-                SystemPrompt = "system prompt",
-                RunToolsBeforeModel = true,
-                IncludeToolOutputInResponse = includeToolOutput,
-                Tools = new ObservableCollection<AgentTool> { tool }
+                Profiles = new ObservableCollection<AgentProfile> { profile },
+                DefaultProfileId = profile.Id
             }
         };
+
+        return (settings, profile);
     }
 
     private static CaptureRecord CreateRecord()

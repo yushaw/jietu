@@ -22,17 +22,22 @@ public class AgentExecutionService : IAgentExecutionService
         _localization = localization;
     }
 
-    public Task<AgentExecutionResult> ExecuteAsync(AppSettings settings, CaptureRecord record, string userMessage, bool includeImage, CancellationToken cancellationToken = default)
-        => RunAsync(settings, record, userMessage, includeImage, cancellationToken);
+    public Task<AgentExecutionResult> ExecuteAsync(AppSettings settings, AgentProfile profile, CaptureRecord record, string userMessage, bool includeImage, CancellationToken cancellationToken = default)
+        => RunAsync(settings, profile, record, userMessage, includeImage, cancellationToken);
 
-    public Task<AgentExecutionResult> ContinueAsync(AppSettings settings, CaptureRecord record, string userMessage, CancellationToken cancellationToken = default)
-        => RunAsync(settings, record, userMessage, includeImage: false, cancellationToken);
+    public Task<AgentExecutionResult> ContinueAsync(AppSettings settings, AgentProfile profile, CaptureRecord record, string userMessage, CancellationToken cancellationToken = default)
+        => RunAsync(settings, profile, record, userMessage, includeImage: false, cancellationToken);
 
-    private async Task<AgentExecutionResult> RunAsync(AppSettings settings, CaptureRecord record, string userMessage, bool includeImage, CancellationToken cancellationToken)
+    private async Task<AgentExecutionResult> RunAsync(AppSettings settings, AgentProfile profile, CaptureRecord record, string userMessage, bool includeImage, CancellationToken cancellationToken)
     {
         if (record is null)
         {
             throw new ArgumentNullException(nameof(record));
+        }
+
+        if (profile is null)
+        {
+            throw new ArgumentNullException(nameof(profile));
         }
 
         var agentSettings = settings?.Agent ?? new AgentSettings();
@@ -50,7 +55,7 @@ public class AgentExecutionService : IAgentExecutionService
         var messagesToAppend = new List<ChatMessage>();
         var toolRuns = new List<AgentToolRunResult>();
 
-        var systemPrompt = (agentSettings.SystemPrompt ?? string.Empty).Trim();
+        var systemPrompt = (profile.SystemPrompt ?? string.Empty).Trim();
         if (!string.IsNullOrWhiteSpace(systemPrompt))
         {
             var systemExists = workingConversation.Any(message => string.Equals(message.Role, "system", StringComparison.OrdinalIgnoreCase)
@@ -79,9 +84,9 @@ public class AgentExecutionService : IAgentExecutionService
             }
         }
 
-        if (agentSettings.RunToolsBeforeModel && agentSettings.Tools is { Count: > 0 })
+        if (profile.RunToolsBeforeModel && profile.Tools is { Count: > 0 })
         {
-            foreach (var tool in agentSettings.Tools.Where(t => t.AutoRun))
+            foreach (var tool in profile.Tools.Where(t => t.AutoRun))
             {
                 if (string.IsNullOrWhiteSpace(tool.Command))
                 {
@@ -98,7 +103,7 @@ public class AgentExecutionService : IAgentExecutionService
             }
         }
 
-        var conversationPayload = BuildConversationPayload(systemPrompt, workingConversation, agentSettings.IncludeToolOutputInResponse);
+        var conversationPayload = BuildConversationPayload(systemPrompt, workingConversation, profile.IncludeToolOutputInResponse);
         var response = await _aiClient.ChatAsync(settings!, record.ImageBytes, conversationPayload, cancellationToken).ConfigureAwait(false);
         response = (response ?? string.Empty).Trim();
 

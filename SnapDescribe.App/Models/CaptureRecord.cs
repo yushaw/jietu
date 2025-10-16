@@ -48,6 +48,8 @@ public partial class CaptureRecord : ObservableObject
 
     public ObservableCollection<OcrSegment> OcrSegments { get; } = new();
 
+    public string? AgentProfileId { get; set; }
+
     [ObservableProperty]
     private string? ocrLanguages;
 

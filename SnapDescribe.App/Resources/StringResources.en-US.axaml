@@ -9,6 +9,7 @@
   <x:String x:Key="Tab.Settings">Settings</x:String>
   <x:String x:Key="Tab.BasicSettings">Basic Settings</x:String>
   <x:String x:Key="Tab.PromptRules">Trigger Rules</x:String>
+  <x:String x:Key="Tab.Agents">Agent Orchestration</x:String>
 
   <!-- Sections -->
   <x:String x:Key="Section.ApiConfig">API Configuration</x:String>
@@ -92,6 +93,7 @@
   <x:String x:Key="Status.AgentCompleted">Agent run completed.</x:String>
   <x:String x:Key="Status.AgentInvokeFailed">Agent run failed: {0}</x:String>
   <x:String x:Key="Status.AgentFailed">Agent run failed.</x:String>
+  <x:String x:Key="Status.AgentUnavailable">No available agent profile. Configure agents first.</x:String>
   <x:String x:Key="Status.RuleAdded">Rule added. Please complete required fields before saving.</x:String>
   <x:String x:Key="Status.FillRequired">Please complete the required fields first.</x:String>
   <x:String x:Key="Status.PromptSaved">Trigger rules saved.</x:String>
@@ -191,8 +193,7 @@
   <x:String x:Key="Agent.Reset">Reset</x:String>
   <x:String x:Key="Agent.Save">Save</x:String>
   <x:String x:Key="Agent.Close">Close</x:String>
-  <x:String x:Key="Agent.ConfigHint">Customize agents, tools, and prompts in a dedicated window.</x:String>
-  <x:String x:Key="Agent.OpenSettings">Open Agent Settings</x:String>
+  <x:String x:Key="Agent.ConfigHint">Manage agents, prompts, and tools for Autogen workflows.</x:String>
   <x:String x:Key="Agent.ToolHeading">Tool: {0}</x:String>
   <x:String x:Key="Agent.ToolExitCode">Exit code: {0}</x:String>
   <x:String x:Key="Agent.ToolOutputHeading">Captured output</x:String>
@@ -201,4 +202,15 @@
   <x:String x:Key="Agent.ToolDefaultName">New Tool</x:String>
   <x:String x:Key="Agent.ToolDefaultDescription">Describe what this tool does.</x:String>
   <x:String x:Key="Agent.ToolsEmptyHint">No tools yet. Add one to integrate CLI or scripts.</x:String>
+  <x:String x:Key="Agent.AddProfile">Add Agent</x:String>
+  <x:String x:Key="Agent.DuplicateProfile">Duplicate</x:String>
+  <x:String x:Key="Agent.RemoveProfile">Remove</x:String>
+  <x:String x:Key="Agent.ProfileDefaultName">New Agent</x:String>
+  <x:String x:Key="Agent.ProfileCopySuffix"> (Copy)</x:String>
+  <x:String x:Key="Agent.ToolCopySuffix"> (Copy)</x:String>
+  <x:String x:Key="Agent.ProfileName">Name</x:String>
+  <x:String x:Key="Agent.ProfileDescription">Description</x:String>
+  <x:String x:Key="Agent.ProfileDetailHint">Select an agent to edit its settings and toolchain.</x:String>
+  <x:String x:Key="Agent.ProfileListEmptyHint">Add an agent to get started.</x:String>
+  <x:String x:Key="Agent.SystemPromptTemplate">You are SnapDescribe Agent. Combine the screenshot analysis with any provided tool outputs to produce a concise, actionable summary.</x:String>
 </ResourceDictionary>

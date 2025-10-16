@@ -93,7 +93,6 @@ public partial class MainWindow : Window
         }
 
         _viewModel.CaptureCompleted += OnCaptureCompleted;
-        _viewModel.AgentSettingsRequested += OnAgentSettingsRequested;
         _ = _viewModel.LoadHistoryAsync();
         Opened += HandleOpened;
         Closed += HandleClosed;
@@ -149,7 +148,6 @@ public partial class MainWindow : Window
         }
 
         _viewModel.CaptureCompleted -= OnCaptureCompleted;
-        _viewModel.AgentSettingsRequested -= OnAgentSettingsRequested;
 
         var historyList = this.FindControl<ListBox>("HistoryList");
         if (historyList is not null)
@@ -169,35 +167,6 @@ public partial class MainWindow : Window
         }
 
         UnregisterSettingsFieldHandlers();
-    }
-
-    private async void OnAgentSettingsRequested(object? sender, EventArgs e)
-    {
-        if (_viewModel is null)
-        {
-            return;
-        }
-
-        var services = App.Services;
-        var settingsService = services.GetRequiredService<SettingsService>();
-        var localization = services.GetRequiredService<LocalizationService>();
-
-        var agentSettingsViewModel = new AgentSettingsViewModel(settingsService, localization);
-        void Handler(object? sender, EventArgs e)
-        {
-            _viewModel.RefreshAgentAvailability();
-        }
-
-        agentSettingsViewModel.Saved += Handler;
-
-        var window = new AgentSettingsWindow(agentSettingsViewModel)
-        {
-            WindowStartupLocation = WindowStartupLocation.CenterOwner
-        };
-
-        await window.ShowDialog(this);
-
-        agentSettingsViewModel.Saved -= Handler;
     }
 
     private async void OnHistoryDoubleTapped(object? sender, RoutedEventArgs e)
