@@ -37,6 +37,7 @@ public partial class MainWindowViewModel : ObservableObject
     private readonly CapabilityResolver _capabilityResolver;
     private readonly IOcrService _ocrService;
     private readonly IAgentExecutionService _agentExecutionService;
+    private readonly ITelemetryService _telemetryService;
     private string? _lastStatusResourceKey;
     private object[] _lastStatusArgs = Array.Empty<object>();
     private readonly DispatcherTimer _statusTimer;
@@ -93,6 +94,7 @@ public partial class MainWindowViewModel : ObservableObject
         StartupRegistrationService startupRegistrationService,
         CapabilityResolver capabilityResolver,
         IAgentExecutionService agentExecutionService,
+        ITelemetryService telemetryService,
         IOcrService ocrService)
     {
         _screenshotService = screenshotService;
@@ -103,6 +105,7 @@ public partial class MainWindowViewModel : ObservableObject
         _startupService = startupRegistrationService;
         _capabilityResolver = capabilityResolver;
         _agentExecutionService = agentExecutionService;
+        _telemetryService = telemetryService;
         _ocrService = ocrService;
         _statusTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(4) };
         _statusTimer.Tick += (_, _) =>
@@ -510,6 +513,8 @@ public partial class MainWindowViewModel : ObservableObject
             SelectedRecord = record;
             CaptureCompleted?.Invoke(this, record);
         });
+
+        _telemetryService.TrackScreenshotCaptured(plan.CapabilityId);
 
         if (isAgentCapability && agentProfile is null)
         {

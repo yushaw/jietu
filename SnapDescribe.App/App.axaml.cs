@@ -55,6 +55,8 @@ public partial class App : Application
         {
             _services ??= ConfigureServices();
             DiagnosticLogger.Log("Application started, service container created.");
+            var telemetry = _services.GetRequiredService<ITelemetryService>();
+            telemetry.Initialize();
             _localization = _services.GetRequiredService<LocalizationService>();
             var settingsService = _services.GetRequiredService<SettingsService>();
             _localization.ApplyLanguage(settingsService.Current.Language);
@@ -64,6 +66,7 @@ public partial class App : Application
             mainWindow.Icon = LoadWindowIcon();
             desktop.MainWindow = mainWindow;
             desktop.Exit += (_, _) => Shutdown();
+            telemetry.TrackAppLaunch();
 
             InitializeTray(desktop, mainWindow);
         }
@@ -94,6 +97,7 @@ public partial class App : Application
         services.AddSingleton<IAgentExecutionService, AgentExecutionService>();
         services.AddSingleton<GlobalHotkeyService>();
         services.AddSingleton<StartupRegistrationService>();
+        services.AddSingleton<ITelemetryService, AppCenterTelemetryService>();
         services.AddSingleton<MainWindowViewModel>();
         services.AddSingleton<MainWindow>();
 
