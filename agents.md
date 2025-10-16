@@ -1,123 +1,81 @@
 # SnapDescribe Agents Guide
 
-This document outlines the design goals and conventions for future agent-related work within SnapDescribe. It should serve as the single source of truth for extending the application with automated assistants, MCP integrations, or external toolchains.
+本文记录 SnapDescribe 智能体体系的目标、约束与交付准则。任何新增的自动助手、sidecar 扩展或外部工具链，都应以此为唯一基线。
 
 ## Vision
 
-Agents augments the core screenshot→prompt→response workflow by orchestrating additional reasoning steps, memory, and actions. Upcoming milestones include:
+Agents 的核心使命是让截图 → Prompt → 响应 的主流程具备可插拔、可观测的扩展能力：
 
-- External tool invocation (CLI, scripts, or APIs)
-- Model Context Protocol (MCP) bridges
-- Standardized agent interfaces exposed to the UI
-- Conversation optimization and richer UX
-- Dedicated AI Assistant hub that aggregates templates, personas, and automation flows
+- 可配置的本地工具链与自动化步骤
+- 基于 LangGraph / Autogen 的多轮推理（通过 Python sidecar 托管）
+- MCP 与远程执行桥接
+- 更细粒度的会话优化与模板管理
+- AI Assistant Hub 聚合模板、Persona 与自动化流程
 
 ## Guiding Principles
 
-1. **Deterministic behavior first.** Agent actions must be reproducible and observable before introducing autonomy.
-2. **Configurable, not hard-coded.** End-users should be able to enable/disable or override agent logic per prompt or per process rule.
-3. **Composable services.** Reuse existing services (SettingsService, ScreenshotService, LocalizationService) instead of duplicating logic.
-4. **Non-blocking UI.** Long-running agent tasks must stay off the UI thread and surface progress through the ViewModels.
-5. **Localized messaging.** Any user-facing string added for agents must be routed through LocalizationService resources.
-6. **Bilingual UX parity.** UI changes must be validated against both zh-CN and en-US resources to ensure layout and copy remain balanced.
-7. **Incremental delivery.** Finish each feature slice with a dedicated commit that references the original requirement and summarises the implementation.
-8. **Test-first mindset.** Every agent-facing service must have automated coverage for critical logic (rules, IO, retries) and the test suite must pass before integration merges.
+1. **Deterministic behavior first.** 行为必须可复现、可审计，再引入更高自治。
+2. **Configurable, not hard-coded.** 用户可按流程或单次 Prompt 定制/禁用智能体逻辑。
+3. **Composable services.** 复用 SettingsService、ScreenshotService、LocalizationService 等现有服务。
+4. **Non-blocking UI.** 长耗时任务必须离开 UI 线程，进度经 ViewModel 上报。
+5. **Localized messaging.** 新增字符串全部走 LocalizationService 资源。
+6. **Bilingual UX parity.** UI 需要在 zh-CN 与 en-US 场景下保持布局与文案均衡。
+7. **Incremental delivery.** 每个功能切片以独立 commit 收尾并回溯需求。
+8. **Test-first mindset.** 智能体相关核心逻辑（规则、IO、重试）必须有自动化覆盖，集成前跑通 `dotnet test`.
 
 ## Architecture Checklist
 
-When introducing a new agent or capability:
+交付新能力前确认：
 
-- [ ] Define clear interfaces in `Services/Agents/` (e.g., `IAgent`, `IAgentContext`).
-- [ ] Extend `AppSettings` with any persisted agent configuration (default prompts, toggles, credentials) and provide defaults for both zh-CN/en-US.
-- [ ] Hook into `MainWindowViewModel` via dependency injection for orchestration.
-- [ ] Provide granular logging using `DiagnosticLogger`.
-- [ ] Update resource dictionaries with localized strings.
-- [ ] Add unit/integration tests or debug harnesses to exercise new agents, and run `dotnet test SnapDescribe.sln` before submission.
+- [ ] `Services/Agents/` 中有清晰接口定义（如 `IAgent`, `IAgentContext`）。
+- [ ] `AppSettings` 覆盖持久化配置并提供 zh-CN/en-US 默认值。
+- [ ] 通过依赖注入接入 `MainWindowViewModel`，避免静态依赖。
+- [ ] 使用 `DiagnosticLogger` 记录关键节点。
+- [ ] 本地化资源字典同步更新。
+- [ ] 新功能具备单元/集成测试或调试脚手架，并验证全量测试。
 
-## MCP Integration Notes
+## Current Implementation（2025 Q4）
 
-- Maintain a separate `Services/Mcp/` namespace for protocol adapters.
-- Follow the MCP spec for session management and capability negotiation.
-- Expose adapter configuration via the Settings UI (e.g., endpoint URL, credentials, enabled flag).
+- **管道**：`CapabilityIds.Agent` 指向 `AgentExecutionService`，负责补全 system/user 消息 → 按顺序执行 AutoRun 工具（`ShellAgentToolRunner`）→ 将工具结果写入对话 → 调用 GLM → 持久化 Markdown 与日志。
+- **配置**：`AppSettings.Agent` 保存全局开关、默认 Profile、自定义 Profile 与工具信息，全部写入 `%APPDATA%/SnapDescribe/settings.json`。
+- **UI**：*Settings → 智能体编排* 提供 Profile/Tool 编辑；*Settings → Trigger Rules* 绑定 `CapabilityIds.Agent` 与具体 Profile；ResultDialog 以 `tool`/`assistant` 消息展示执行轨迹。
+- **测试**：`AgentExecutionServiceTests` 覆盖消息顺序与工具输出选项；UI/集成流程暂以手测为主。
+- **限制**：仅支持本机 CLI 工具；未实现 MCP、远程执行、多 Agent 协调与复杂重试。
 
-## External Tool Execution
+## Sidecar Integration（规划中）
 
-- Wrap shell execution inside dedicated services to control timeouts, environment variables, and sandboxing.
-- All tool outputs should be captured and attached to the conversation history when relevant.
-- Ensure tooling paths are configurable via AppSettings.
+- **职责划分**：Host（SnapDescribe.App）继续负责截图、OCR、工具执行、安全与 UI；Python sidecar 专注 LangGraph/Autogen 编排。
+- **发现与健康检查**：Host 通过本地 HTTP `/status` 识别 sidecar 是否安装、版本是否兼容，并提示安装/升级。
+- **Agent 目录**：sidecar 提供 `GET /agents` 返回模板（多语言名称、描述、参数定义、工具依赖等），Host 映射为只读模板，支持用户克隆后本地调整。
+- **运行闭环**：Host 以 `POST /runs` 发送对话上下文、截图引用、工具清单；sidecar 通过 SSE 推送思考、工具调用、完成事件；工具执行仍由 Host 的 `ShellAgentToolRunner` 完成并经 `POST /runs/{id}/tools/{callId}` 回传。
+- **配置扩展**：`AppSettings.Agent.Sidecar` 将新增路径、版本、Manifest、AuthToken 等字段；设置页提供安装/更新、自定义端口、状态展示。
+- **协议文档**：通信负载、事件类型、错误码等细节独立收敛于 `docs/SidecarProtocol.md`（由 sidecar 项目与 Host 共用）。
+- **降级策略**：sidecar 未安装或通信失败时自动回落至本地 `AgentExecutionService`。
 
-## Agent UX Patterns
+## Configuration Walkthrough（现状 + 即将扩展）
 
-- Agent results should appear as additional assistant messages with metadata tags (e.g., `assistant/agent` role).
-- Provide quick actions in the ResultDialog to re-run or refine agent steps.
-- When agents modify files, surface diffs or summaries before applying changes.
+1. 打开 *Settings → 智能体编排*，启用“智能体编排”。
+2. 按需新建/复制智能体，配置 system prompt、工具列表与运行策略。
+3. 在 *Settings → Trigger Rules* 选择 `Autogen Agent Pipeline` 并指定目标 Profile（sidecar 模板可先克隆后使用）。
+4. 捕捉截图时若匹配规则，主流程按 Profile 指示运行；后续聊天复用相同管道。
+5. 安装 sidecar 后，可在设置页检测状态并选择使用 sidecar 模板或自定义流程。
 
-## Current Implementation Snapshot (October 2025)
+## Python Sidecar Expansion（摘要）
 
-- **Capability plumbing**: `CapabilityIds.Agent` resolves to `AgentExecutionService`, which chains auto-run tools (`ShellAgentToolRunner`) and GLM chat while logging every step back into `CaptureRecord` and persisted transcripts.
-- **Settings & persistence**: `AgentSettings` (on `AppSettings.Agent`) stores the global toggle plus a collection of agent profiles (`AgentProfile`). Each profile carries its own prompt, flags, and tool list. Everything is persisted to `%APPDATA%/SnapDescribe/settings.json`.
-- **UI entry points**: *Settings → 智能体编排*（Agent Orchestration）标签页提供左侧的智能体列表与右侧的详细编辑器，支持新增/复制/删除智能体、管理提示词及工具链。*Settings → Trigger Rules* 里的规则在选择 “Autogen Agent Pipeline” 后，可指定具体智能体。
-- **Conversation surface**: Tool outputs appear as dedicated `tool` messages in ResultDialog, immediately followed by the synthesized assistant reply. Follow-up prompts reuse the same orchestration path.
-- **Testing**: `AgentExecutionServiceTests` cover message ordering, tool-output inclusion, and payload composition; integration UI flows remain manual.
-- **Known limitations**: Only single-machine CLI tools are supported; MCP adapters, remote executors, multiple interacting agents, and richer error recovery are still on the roadmap.
+- **交付形态**：独立仓库发布，产出 `snapdescribe-sidecar-win64.zip` + `sidecar-manifest.json`。Host 下载、校验 SHA256 后解压至 `%LOCALAPPDATA%\SnapDescribe\sidecar\python\<version>\`。
+- **通信原则**：本地 HTTP + SSE；所有请求需携带 Host 生成的 Bearer Token；sidecar 不直接执行 shell，工具调用全部通过 Host 白名单执行器。
+- **生命周期**：Host 按需拉起 sidecar 进程、监听日志并在应用退出或用户取消时发送 `CancelRun`；故障时提供回退提示。
+- **测试与调试**：sidecar 带 pytest 覆盖（workflow、工具回调、取消）；Host 引入 `ISidecarClient` 抽象并提供 Fake client；支持设置自定义端点连接开发版 sidecar。
+- **演进路线**：后续 MCP、LangGraph Workflow Designer、本地工具注册、Multi-Agent 调度均基于统一协议推进。任何变更需同步更新 `agents.md`、`docs/PythonSidecarDesign.md` 与 `docs/SidecarProtocol.md`。
 
-## Configuration Walkthrough (Preview)
-
-1. **Enable orchestration & create agents** – open *Settings → 智能体编排*，勾选 “启用智能体编排”，在左侧列表中新增智能体，右侧面板可编辑系统提示词、工具链及工具运行策略。
-2. **Configure tools** – “新增工具” 支持命令行或脚本调用，参数模板同样接受 `{prompt}`、`{message}`、`{imagePath}`、`{processName}`、`{timestamp}` 等占位符，超时时间默认 30 秒。
-3. **Assign via rules** – in *Settings → Trigger Rules* select “Autogen Agent Pipeline” and choose the desired agent profile from the dropdown. Key/value parameters remain available for advanced scenarios.
-4. **Run & iterate** – once a capture matches the rule, SnapDescribe executes the agent’s auto-run tools, appends outputs to the conversation, and invokes GLM for the final response. Use follow-up chat to re-run the pipeline with new prompts.
-
-> Disable the preview at any time by unchecking the toggle in the Agent Orchestration tab; rules automatically fall back to the standard language model capability.
-
-## Security & Privacy
-
-- Never send sensitive disk paths or full clipboard contents to external endpoints without explicit user consent.
-- Log agent decisions with enough context for audit, but redact tokens or secrets.
-- Respect the offline mode: agents must honor settings that disable network calls.
-
-## Packaging Notes
-
-- Release automation (`.github/workflows/release.yml`) now produces both a portable ZIP bundle and an NSIS installer (`SnapDescribeSetup.exe`). Keep the installer script (`installer/SnapDescribeInstaller.nsi`) aligned whenever new binaries or resources are added.
-- OCR runs on bundled `tessdata` assets (`eng`, `chi_sim`). Any new language packs or native dependencies must be included in the repository and referenced by both the publish pipeline and installer.
-- The desktop client exposes a `--shutdown` CLI switch. Installers and external automation should trigger it before touching files so that the running instance can exit cleanly (the NSIS installer does this automatically before falling back to `taskkill`).
-
-## Roadmap Alignment
+## Roadmap（对齐）
 
 1. Process-aware prompt overrides ✅
-2. External tool hooks ⏳
-3. MCP bridge ⏳
-4. Standard agent contracts ⏳
-5. Conversation experience upgrades ⏳
-6. AI Assistant hub ⏳
+2. External tool hooks ✅（基础版）
+3. Python sidecar & LangGraph orchestration ⏳
+4. MCP bridge ⏳
+5. 标准化 Agent 合同与模板共享 ⏳
+6. Conversation 体验升级 ⏳
+7. AI Assistant Hub ⏳
 
-Keep this document up to date as the implementation evolves.
-
-## Agent Runtime Direction
-
-- Base the runtime on the latest Autogen framework concepts (conversable agents, tool registries, and coordinators) so that we can reuse contemporary multi-agent patterns without fragmenting the ecosystem.
-- Map our internal services (`IAgent`, `IAgentContext`, `IAgentToolRunner`) to Autogen abstractions: a coordinator agent orchestrates specialized worker agents while snapshots remain deterministic for reproducibility.
-- Start with deterministic tool execution for local CLI commands; MCP adapters and remote tools will register through the same Autogen-compatible interfaces when introduced.
-- Keep the loop deterministic: resolve capability → prepare agent group → execute configured tools → feed transcripts to GLM for the final response.
-
-## Python Sidecar Expansion (Gated Preview)
-
-To unlock LangGraph-level agent capabilities without rewriting the Avalonia client:
-
-- **Architecture**: Keep SnapDescribe as the orchestration host (capture, OCR, logging, tool execution). Introduce a detachable Python sidecar that runs LangGraph workflows and issues declarative actions back to the host. The sidecar never spawns shell commands directly—the host continues to enforce tool white-lists and timeouts.
-- **Communication**: A local RPC channel (HTTP loopback or named pipe) exchanges `StartRun`, `AgentEvent`, `ToolResult`, and `CancelRun` payloads. Each payload carries `runId`/`recordId` for deterministic replay. Cancellation flows from the UI through the host into the sidecar.
-- **Packaging & Delivery**: Package the sidecar as an embedded CPython runtime plus minimal LangGraph dependencies (~70 MB unpacked). Publish `snapdescribe-sidecar-win64.zip` and a manifest JSON with version + SHA256 on every GitHub Release. The base installer stays slim.
-- **On-Demand Install**: The Agent Settings tab will detect the sidecar state, prompt users to download/update, verify hashes, then extract to `%LOCALAPPDATA%\SnapDescribe\sidecar\python\<version>\`. Power users can point to a custom path for development builds.
-- **Lifecycle**: `AgentExecutionService` becomes an RPC client that streams conversation context to the sidecar and relays tool callbacks through existing `ShellAgentToolRunner`. `App.axaml.cs` owns process startup/shutdown, and `DiagnosticLogger` records install/upgrade events.
-- **Testing**: Python sidecar ships with pytest coverage (graph lifecycle, tool callback serialization, cancellation). .NET tests mock the RPC layer to verify UI/state handling. CI publishes both the main installer and the optional sidecar artifact.
-- **Global reuse**: The sidecar is packaged as a shared Windows module with a documented RPC schema. Future desktop or service apps can authenticate and reuse the same runtime so the broader ecosystem benefits from a single agent capability surface.
-
-The full checklist lives in `docs/PythonSidecarDesign.md`. Use it when planning tasks for the dedicated agent to implement this preview feature.
-
-### Local Agent & Workflow Roadmap
-
-- 丰富本地生态：SnapDescribe 将持续引入大量本地工具、资源索引和内部接口。Agent 配置需要允许用户把这些能力作为 LangGraph 工具即时挂载或卸载。
-- 多 Agent 管理：用户可在 UI 中创建/克隆多个本地 Agent Profile，并可在运行时将 Agent 之间互相嵌套调用或共享工具链。
-- 动态扩展：运行过程中允许用户追加新的工具或切换至不同 Agent，而无需重启 sidecar；配置变更要可审计并可回滚。
-- Workflow 规划：在框架稳定后，会基于 LangGraph 的图结构提供可视化 Workflow 设计器，支持串行/并行步骤、条件分支、人工确认节点等高级编排。
-- 上述规划须继续遵守本章的 determinism、可观测性、安全约束，并在实现前更新设计文档。
+保持本文档随实现演化持续更新。
