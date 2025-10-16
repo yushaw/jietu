@@ -17,14 +17,40 @@ class Program
     {
         using var mutex = new Mutex(true, "SnapDescribe.SingleInstance", out var createdNew);
         using var showEvent = new EventWaitHandle(false, EventResetMode.AutoReset, "SnapDescribe.ShowWindow");
+        using var shutdownEvent = new EventWaitHandle(false, EventResetMode.AutoReset, "SnapDescribe.Shutdown");
+
+        var requestShutdown = false;
+        foreach (var arg in args)
+        {
+            if (string.Equals(arg, "--shutdown", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(arg, "/shutdown", StringComparison.OrdinalIgnoreCase))
+            {
+                requestShutdown = true;
+                break;
+            }
+        }
 
         if (!createdNew)
         {
-            showEvent.Set();
+            if (requestShutdown)
+            {
+                shutdownEvent.Set();
+                Thread.Sleep(500);
+            }
+            else
+            {
+                showEvent.Set();
+            }
+            return;
+        }
+
+        if (requestShutdown)
+        {
             return;
         }
 
         App.RegisterActivationEvent(showEvent);
+        App.RegisterShutdownEvent(shutdownEvent);
         BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
     }
 

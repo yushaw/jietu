@@ -18,6 +18,7 @@ SnapDescribe 是一款基于 Avalonia 的桌面截图助手，可以在 Windows 
 - **多模态对话**：将 PNG 以 Base64 发送到智谱 GLM `chat/completions`，支持对话续聊与上下文记忆。
 - **Prompt 规则匹配**：按进程或窗口标题自动切换 Prompt（默认内置常见浏览器、PDF、IM、WPS 规则）。
 - **结果预览**：弹窗展示截图、元数据、对话记录，可直接继续追问或复制内容。
+- **本地 OCR**：在规则中选择 OCR 能力，调用 Tesseract 识别截图文本，支持多语言分段展示与复制。
 - **本地持久化**：截图、Markdown 会话与日志默认保存到用户目录，易于归档。
 - **全局热键与托盘**：默认 `Alt+T`，可自定义，同时支持托盘菜单快捷操作。
 - **多语言界面**：内置中文/英文，首次启动自动匹配系统语言，可在设置页一键切换。
@@ -33,30 +34,41 @@ SnapDescribe 是一款基于 Avalonia 的桌面截图助手，可以在 Windows 
 
 ### 运行步骤
 
-```bash
-git clone https://github.com/yushaw/SnapDescribe.git
-cd SnapDescribe
-dotnet restore
-dotnet run --project SnapDescribe.App
-```
+1. **直接安装**（推荐）：前往 GitHub Release 下载 `SnapDescribeSetup.exe`，双击按照向导完成安装（自动包含 OCR 所需的 `tessdata` 语言包）。  
+2. **源码运行**：
+   ```bash
+   git clone https://github.com/yushaw/SnapDescribe.git
+   cd SnapDescribe
+   dotnet restore
+   dotnet run --project SnapDescribe.App
+   ```
 
 首次运行请在“设置”页填写 Base URL（默认 `https://open.bigmodel.cn/api/paas/v4/`）、API Key 与模型名称（默认 `glm-4.5v`），随后即可通过按钮或全局热键启动截图流程。应用会根据系统语言自动选择中文或英文界面，也可随时在设置页切换。
+
+> 提示：命令行执行 `SnapDescribe.exe --shutdown` 可以通知正在运行的实例退出，安装包升级时会自动使用这一机制，避免“文件被占用”报错。
 
 ## 发布与升级
 
 本地生成 Windows x64 自包含单文件：
 
 ```bash
-dotnet publish SnapDescribe.App -c Release -r win-x64 --self-contained true /p:PublishSingleFile=true
+dotnet publish SnapDescribe.App -c Release -r win-x64 --self-contained true \
+  /p:PublishSingleFile=true \
+  /p:InstallVersion=<版本号>
+makensis -DSourceDir=$(pwd)/SnapDescribe.App/bin/Release/net8.0/win-x64/publish \
+  -DAppIcon=$(pwd)/SnapDescribe.App/Assets/AppIcon.ico \
+  -DInstallVersion=<版本号> \
+  installer/SnapDescribeInstaller.nsi
 ```
 
-输出位于 `SnapDescribe.App/bin/Release/net8.0/win-x64/publish/`，其中的 `SnapDescribe.exe` 可直接分发。仓库内的 `.github/workflows/release.yml` 会在推送 `v*` 标签后自动构建同样的发布包并创建 GitHub Release。
+发布目录内会生成 `SnapDescribe.exe`、`tessdata/` 语言包以及完整安装包 `SnapDescribeSetup.exe`。GitHub Actions 同样会在推送 `v*` 标签后自动构建压缩包与 NSIS 安装器并发布到 Release。
 
 后续版本将补充自动更新通道，确保应用能在系统内直接检测并安装新版本。
 
 ## 默认配置与数据位置
 
 - Prompt 规则与其他设置保存在 `%APPDATA%\SnapDescribe\settings.json`。首次启动会自动写入内置规则：常见 PDF 阅读器映射到 OCR Prompt，Chrome/Edge 使用网页总结，tuitui.exe 与 WeChat 给出聊天回复草案，WPS 表格/文档分别应用数据分析与润色 Prompt。
+- OCR 能力依赖本地 Tesseract。应用已内置 `eng` 与 `chi_sim` 语言包，默认即可使用；若需其他语言，可将对应的 `.traineddata` 文件放入 `tessdata` 目录（或在设置中指定自定义路径），并在规则参数里通过 `language` 键覆盖语言组合（例如 `eng+deu`）。
 - 截图与 Markdown 对话默认位于 `我的图片/SnapDescribe`（可在设置中调整）。
 - 日志输出路径为 `%APPDATA%\SnapDescribe\logs\`。
 

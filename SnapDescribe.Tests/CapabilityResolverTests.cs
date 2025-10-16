@@ -99,4 +99,32 @@ public class CapabilityResolverTests
         Assert.Equal("Default prompt", plan.GetParameter("prompt"));
         Assert.True(plan.UsedFallback);
     }
+
+    [Fact]
+    public void Resolve_OcrRule_UsesConfiguredLanguage()
+    {
+        var rule = new PromptRule
+        {
+            ProcessName = "winword.exe",
+            CapabilityId = CapabilityIds.Ocr
+        };
+        rule.Parameters.Add(new CapabilityParameter
+        {
+            Key = "language",
+            Value = "eng+deu"
+        });
+
+        var settings = new AppSettings
+        {
+            DefaultPrompt = "Default prompt",
+            PromptRules = new ObservableCollection<PromptRule> { rule }
+        };
+
+        var resolver = new CapabilityResolver();
+        var plan = resolver.Resolve(settings, "winword.exe", null);
+
+        Assert.Equal(CapabilityIds.Ocr, plan.CapabilityId);
+        Assert.Equal("eng+deu", plan.GetParameter("language"));
+        Assert.False(plan.UsedFallback);
+    }
 }

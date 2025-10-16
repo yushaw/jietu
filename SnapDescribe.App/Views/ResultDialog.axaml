@@ -47,11 +47,22 @@
                                        Foreground="#2E3554"
                                        TextWrapping="Wrap" />
                         </StackPanel>
-                        <StackPanel Spacing="6">
+                        <StackPanel Spacing="6"
+                                    IsVisible="{Binding ShowPromptDetails}">
                             <TextBlock Text="{DynamicResource Dialog.PromptUsed}"
                                        FontSize="12"
                                        Foreground="#7A8199" />
                             <TextBlock Text="{Binding Prompt}"
+                                       FontSize="13"
+                                       Foreground="#2E3554"
+                                       TextWrapping="Wrap" />
+                        </StackPanel>
+                        <StackPanel Spacing="6"
+                                    IsVisible="{Binding ShowOcrDetails}">
+                            <TextBlock Text="{DynamicResource Dialog.OcrLanguages}"
+                                       FontSize="12"
+                                       Foreground="#7A8199" />
+                            <TextBlock Text="{Binding OcrLanguages}"
                                        FontSize="13"
                                        Foreground="#2E3554"
                                        TextWrapping="Wrap" />
@@ -70,65 +81,85 @@
                         <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
 
-                    <Grid Grid.Row="0"
-                          Margin="0,0,0,1">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="*" />
-                    </Grid.RowDefinitions>
-                    <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
-                        <ItemsControl ItemsSource="{Binding Conversation}">
-                            <ItemsControl.ItemsPanel>
-                                <ItemsPanelTemplate>
-                                    <StackPanel Spacing="10" Margin="18" />
-                                </ItemsPanelTemplate>
-                            </ItemsControl.ItemsPanel>
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate x:DataType="models:ChatMessage">
-                                    <Border CornerRadius="10"
-                                            Padding="12"
-                                            Background="{Binding Role, Converter={x:Static models:ChatMessageRoleToColorConverter.Instance}}"
-                                            HorizontalAlignment="{Binding Role, Converter={x:Static models:ChatMessageRoleToAlignmentConverter.Instance}}">
-                                        <StackPanel Spacing="4">
-                                            <TextBlock Text="{Binding DisplayRole}"
-                                                       FontSize="12"
-                                                       Foreground="#7A8199" />
-                                            <TextBox Text="{Binding Content}"
-                                                     FontSize="14"
-                                                     Foreground="#1F2433"
-                                                     TextWrapping="Wrap"
-                                                     IsReadOnly="True"
-                                                     Background="Transparent"
-                                                     BorderThickness="0"
-                                                     Padding="0"
-                                                     MinHeight="20"
-                                                     MaxWidth="520"
-                                                     IsTabStop="False" />
-                                        </StackPanel>
-                                    </Border>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-                    </ScrollViewer>
+                    <Grid Grid.Row="0" Margin="0,0,0,1">
+                        <ScrollViewer HorizontalScrollBarVisibility="Disabled"
+                                      VerticalScrollBarVisibility="Auto"
+                                      IsVisible="{Binding SupportsChat}">
+                            <ItemsControl ItemsSource="{Binding Conversation}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <StackPanel Spacing="10" Margin="18" />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="models:ChatMessage">
+                                        <Border CornerRadius="10"
+                                                Padding="12"
+                                                Background="{Binding Role, Converter={x:Static models:ChatMessageRoleToColorConverter.Instance}}"
+                                                HorizontalAlignment="{Binding Role, Converter={x:Static models:ChatMessageRoleToAlignmentConverter.Instance}}">
+                                            <StackPanel Spacing="4">
+                                                <TextBlock Text="{Binding DisplayRole}"
+                                                           FontSize="12"
+                                                           Foreground="#7A8199" />
+                                                <TextBox Text="{Binding Content}"
+                                                         FontSize="14"
+                                                         Foreground="#1F2433"
+                                                         TextWrapping="Wrap"
+                                                         IsReadOnly="True"
+                                                         Background="Transparent"
+                                                         BorderThickness="0"
+                                                         Padding="0"
+                                                         MinHeight="20"
+                                                         MaxWidth="520"
+                                                         IsTabStop="False" />
+                                            </StackPanel>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
 
-                    <Border x:Name="LoadingPanel"
-                            HorizontalAlignment="Stretch"
-                            VerticalAlignment="Top"
-                            Margin="0"
-                            Padding="12,10"
-                            Background="#EEF2FF"
-                            CornerRadius="0,0,12,12"
-                            IsVisible="False">
-                        <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Center">
-                            <ProgressBar IsIndeterminate="True" Width="140" Height="6" />
-                            <TextBlock Text="{DynamicResource Dialog.Loading}"
-                                       FontSize="12"
-                                       Foreground="#394264"
-                                       VerticalAlignment="Center" />
-                        </StackPanel>
-                    </Border>
-                </Grid>
+                        <ScrollViewer HorizontalScrollBarVisibility="Auto"
+                                      VerticalScrollBarVisibility="Auto"
+                                      IsVisible="{Binding SupportsOcr}">
+                            <Grid Margin="18,18,18,0">
+                                <TextBox Text="{Binding ResponseMarkdown}"
+                                         AcceptsReturn="True"
+                                         TextWrapping="Wrap"
+                                         IsReadOnly="True"
+                                         BorderThickness="0"
+                                         Background="Transparent"
+                                         FontSize="14"
+                                         Foreground="#1F2433"
+                                         IsVisible="{Binding HasOcrResults}" />
+                                <TextBlock Text="{DynamicResource Dialog.OcrEmpty}"
+                                           Foreground="#6B7280"
+                                           FontSize="13"
+                                           Margin="0,20,0,0"
+                                           HorizontalAlignment="Center"
+                                           IsVisible="{Binding NoOcrResults}" />
+                            </Grid>
+                        </ScrollViewer>
 
-                    <Grid x:Name="ChatContainer" Grid.Row="1" ColumnDefinitions="*,Auto" Background="#F8FAFF" Margin="0" Height="90">
+                        <Border x:Name="LoadingPanel"
+                                HorizontalAlignment="Stretch"
+                                VerticalAlignment="Top"
+                                Margin="0"
+                                Padding="12,10"
+                                Background="#EEF2FF"
+                                CornerRadius="0,0,12,12"
+                                IsVisible="False">
+                            <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Center">
+                                <ProgressBar IsIndeterminate="True" Width="140" Height="6" />
+                                <TextBlock Text="{DynamicResource Dialog.Loading}"
+                                           FontSize="12"
+                                           Foreground="#394264"
+                                           VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+
+                    <Grid x:Name="ChatContainer" Grid.Row="1" ColumnDefinitions="*,Auto" Background="#F8FAFF" Margin="0" Height="90" IsVisible="{Binding SupportsChat}">
                         <TextBox x:Name="ChatInput"
                                  Grid.Column="0"
                                  Watermark="{DynamicResource Watermark.ChatInput}"
@@ -145,6 +176,23 @@
                                 Width="120"
                                 Margin="0,14,14,14" />
                     </Grid>
+
+                    <Border x:Name="OcrActions"
+                            Grid.Row="1"
+                            Background="#F8FAFF"
+                            Padding="18,14"
+                            IsVisible="{Binding SupportsOcr}">
+                        <StackPanel Orientation="Horizontal" Spacing="12">
+                            <Button Content="{DynamicResource Button.CopyAll}"
+                                    Classes="primary"
+                                    Click="OnCopyAllClicked"
+                                    IsEnabled="{Binding HasOcrResults}" />
+                            <TextBlock Text="{DynamicResource Dialog.OcrCopyHint}"
+                                       Foreground="#6B7280"
+                                       FontSize="12"
+                                       VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Border>
                 </Grid>
             </Border>
         </Grid>

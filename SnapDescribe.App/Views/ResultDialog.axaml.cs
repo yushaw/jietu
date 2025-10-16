@@ -124,6 +124,10 @@ public partial class ResultDialog : Window
         {
             SendButton.IsEnabled = false;
             ChatInput.IsEnabled = false;
+            if (OcrActions is not null)
+            {
+                OcrActions.IsEnabled = !isLoading;
+            }
         }
     }
 
@@ -162,5 +166,33 @@ public partial class ResultDialog : Window
     private void LocalizationOnLanguageChanged(object? sender, EventArgs e)
     {
         UpdateLocalizedTexts();
+    }
+
+    private async void OnCopyAllClicked(object? sender, RoutedEventArgs e)
+    {
+        if (_record is null)
+        {
+            return;
+        }
+
+        var text = _record.ResponseMarkdown;
+
+        await CopyTextAsync(text);
+    }
+
+    private async Task CopyTextAsync(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return;
+        }
+
+        var clipboard = TopLevel.GetTopLevel(this)?.Clipboard;
+        if (clipboard is null)
+        {
+            return;
+        }
+
+        await clipboard.SetTextAsync(text);
     }
 }

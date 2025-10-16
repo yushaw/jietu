@@ -13,6 +13,7 @@ public class SettingsService
 {
     private const string DefaultPromptZh = "请用简洁的语言描述这张截图的关键信息，并给出一个可能的解答或操作建议。";
     private const string DefaultPromptEn = "Describe the key information shown in this screenshot and provide a concise answer or actionable suggestion.";
+    private const string DefaultOcrLanguages = "chi_sim+eng";
 
     private static readonly string[] SupportedLanguages = { "en-US", "zh-CN" };
 
@@ -95,6 +96,8 @@ public class SettingsService
 
         EnsureLanguage(!settingsExists);
         EnsurePromptRules();
+        EnsureAgentSettings();
+        EnsureOcrSettings();
         EnsureOutputDirectory();
     }
 
@@ -105,6 +108,8 @@ public class SettingsService
         applyChanges(_current);
         EnsureLanguage();
         EnsurePromptRules();
+        EnsureAgentSettings();
+        EnsureOcrSettings();
         EnsureOutputDirectory();
     }
 
@@ -139,6 +144,8 @@ public class SettingsService
         _current = settings;
         EnsureLanguage();
         EnsurePromptRules();
+        EnsureAgentSettings();
+        EnsureOcrSettings();
         EnsureOutputDirectory();
         Save();
     }
@@ -191,6 +198,43 @@ public class SettingsService
         }
     }
 
+    private void EnsureAgentSettings()
+    {
+        var changed = false;
+
+        if (_current.Agent is null)
+        {
+            _current.Agent = new AgentSettings();
+            changed = true;
+        }
+
+        if (_current.Agent.Tools is null)
+        {
+            _current.Agent.Tools = new ObservableCollection<AgentTool>();
+            changed = true;
+        }
+
+        foreach (var tool in _current.Agent.Tools)
+        {
+            if (string.IsNullOrWhiteSpace(tool.Id))
+            {
+                tool.Id = Guid.NewGuid().ToString("N");
+                changed = true;
+            }
+
+            if (tool.TimeoutSeconds <= 0)
+            {
+                tool.TimeoutSeconds = 30;
+                changed = true;
+            }
+        }
+
+        if (changed)
+        {
+            Save();
+        }
+    }
+
     private void EnsureDefaultPromptRules()
     {
         if (_current.HasSeededDefaultPromptRules)
@@ -231,6 +275,16 @@ public class SettingsService
         {
             Save();
         }
+    }
+
+    private void EnsureOcrSettings()
+    {
+        if (_current.OcrTessDataPath is null)
+        {
+            _current.OcrTessDataPath = string.Empty;
+        }
+
+        _current.OcrDefaultLanguages = DefaultOcrLanguages;
     }
 
     private void EnsureLanguage(bool isNewProfile = false)

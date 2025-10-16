@@ -1,0 +1,127 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:controls="clr-namespace:Avalonia.Controls;assembly=Avalonia.Controls"
+        x:Class="SnapDescribe.App.Views.AgentSettingsWindow"
+        x:CompileBindings="False"
+        Title="{DynamicResource Agent.WindowTitle}"
+        Width="900"
+        Height="620"
+        MinWidth="760"
+        MinHeight="520"
+        WindowStartupLocation="CenterOwner">
+    <Border Background="#F6F8FC" Padding="20">
+        <Grid RowDefinitions="Auto,*,Auto"
+              RowSpacing="16">
+            <Border Background="White"
+                    CornerRadius="16"
+                    Padding="18">
+                <StackPanel Spacing="12">
+                    <TextBlock Text="{DynamicResource Agent.Intro}" FontSize="16" FontWeight="SemiBold" Foreground="#1F2433" />
+                    <CheckBox Content="{DynamicResource Agent.EnableToggle}"
+                              IsChecked="{Binding Agent.IsEnabled, Mode=TwoWay}" />
+                    <CheckBox Content="{DynamicResource Agent.RunToolsBeforeModel}"
+                              IsChecked="{Binding Agent.RunToolsBeforeModel, Mode=TwoWay}" />
+                    <CheckBox Content="{DynamicResource Agent.IncludeToolOutput}"
+                              IsChecked="{Binding Agent.IncludeToolOutputInResponse, Mode=TwoWay}" />
+                    <StackPanel Orientation="Vertical" Spacing="6">
+                        <TextBlock Text="{DynamicResource Agent.SystemPromptLabel}" FontWeight="SemiBold" />
+                        <TextBox Text="{Binding Agent.SystemPrompt, Mode=TwoWay}"
+                                 AcceptsReturn="True"
+                                 Height="120"
+                                 TextWrapping="Wrap"
+                                 Padding="8"
+                                 Watermark="{DynamicResource Agent.SystemPromptHint}" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <Grid Grid.Row="1"
+                  ColumnDefinitions="240,*"
+                  ColumnSpacing="16">
+                <Border Background="White"
+                        CornerRadius="16"
+                        Padding="14">
+                    <StackPanel Spacing="10">
+                        <TextBlock Text="{DynamicResource Agent.ToolListHeading}"
+                                   FontWeight="SemiBold" />
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <Button Content="{DynamicResource Agent.AddTool}"
+                                    Command="{Binding AddToolCommand}" />
+                            <Button Content="{DynamicResource Agent.DuplicateTool}"
+                                    Command="{Binding DuplicateToolCommand}" />
+                            <Button Content="{DynamicResource Agent.RemoveTool}"
+                                    Command="{Binding RemoveToolCommand}" />
+                        </StackPanel>
+                        <ListBox ItemsSource="{Binding Agent.Tools}"
+                                 SelectedItem="{Binding SelectedTool, Mode=TwoWay}"
+                                 MinHeight="320">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <StackPanel>
+                                        <TextBlock Text="{Binding Name}" FontWeight="SemiBold" />
+                                        <TextBlock Text="{Binding Description}" FontSize="12" Foreground="#6B7280" />
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                    </StackPanel>
+                </Border>
+
+                <Border Grid.Column="1"
+                        Background="White"
+                        CornerRadius="16"
+                        Padding="18">
+                    <StackPanel Spacing="12">
+                        <TextBlock Text="{DynamicResource Agent.ToolDetailHeading}"
+                                   FontWeight="SemiBold" />
+                        <StackPanel Orientation="Vertical" Spacing="6">
+                            <TextBlock Text="{DynamicResource Agent.ToolName}" />
+                            <TextBox Text="{Binding SelectedTool.Name, Mode=TwoWay}" />
+                        </StackPanel>
+                        <StackPanel Orientation="Vertical" Spacing="6">
+                            <TextBlock Text="{DynamicResource Agent.ToolDescription}" />
+                            <TextBox Text="{Binding SelectedTool.Description, Mode=TwoWay}" />
+                        </StackPanel>
+                        <StackPanel Orientation="Vertical" Spacing="6">
+                            <TextBlock Text="{DynamicResource Agent.ToolCommandLabel}" />
+                            <TextBox Text="{Binding SelectedTool.Command, Mode=TwoWay}" />
+                        </StackPanel>
+                        <StackPanel Orientation="Vertical" Spacing="6">
+                            <TextBlock Text="{DynamicResource Agent.ToolArguments}" />
+                            <TextBox Text="{Binding SelectedTool.ArgumentsTemplate, Mode=TwoWay}"
+                                     Watermark="{DynamicResource Agent.ToolArgumentsHint}" />
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Spacing="12">
+                            <StackPanel Width="200" Spacing="6">
+                                <TextBlock Text="{DynamicResource Agent.ToolTimeoutLabel}" />
+                                <controls:NumericUpDown Minimum="5"
+                                                        Maximum="600"
+                                                        Value="{Binding SelectedTool.TimeoutSeconds, Mode=TwoWay}" />
+                            </StackPanel>
+                            <CheckBox Content="{DynamicResource Agent.ToolAutoRun}"
+                                      IsChecked="{Binding SelectedTool.AutoRun, Mode=TwoWay}"
+                                      VerticalAlignment="Bottom" />
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+            </Grid>
+
+            <Grid Grid.Row="2"
+                  ColumnDefinitions="*,Auto,Auto"
+                  ColumnSpacing="10">
+                <Button Grid.Column="0"
+                        Content="{DynamicResource Agent.Reset}"
+                        Command="{Binding ResetCommand}" />
+                <Button Grid.Column="1"
+                        Content="{DynamicResource Agent.Save}"
+                        Command="{Binding SaveCommand}"
+                        Classes="primary"
+                        IsEnabled="{Binding IsDirty}" />
+                <Button Grid.Column="2"
+                        Content="{DynamicResource Agent.Close}"
+                        Click="OnCloseClicked" />
+            </Grid>
+        </Grid>
+    </Border>
+</Window>

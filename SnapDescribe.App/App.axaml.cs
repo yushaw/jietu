@@ -30,6 +30,8 @@ public partial class App : Application
     private bool _shouldRestoreMainWindow;
     private static EventWaitHandle? _activationEvent;
     private RegisteredWaitHandle? _activationWaitHandle;
+    private static EventWaitHandle? _shutdownEvent;
+    private RegisteredWaitHandle? _shutdownWaitHandle;
 
     public App()
     {
@@ -84,9 +86,12 @@ public partial class App : Application
         });
         services.AddSingleton<SettingsService>();
         services.AddSingleton<LocalizationService>();
+        services.AddSingleton<IOcrService, TesseractOcrService>();
         services.AddSingleton<CapabilityResolver>();
         services.AddSingleton<IScreenshotService, ScreenshotService>();
         services.AddSingleton<IAiClient, GlmClient>();
+        services.AddSingleton<IAgentToolRunner, ShellAgentToolRunner>();
+        services.AddSingleton<IAgentExecutionService, AgentExecutionService>();
         services.AddSingleton<GlobalHotkeyService>();
         services.AddSingleton<StartupRegistrationService>();
         services.AddSingleton<MainWindowViewModel>();
@@ -98,6 +103,11 @@ public partial class App : Application
     public static void RegisterActivationEvent(EventWaitHandle handle)
     {
         _activationEvent = handle;
+    }
+
+    public static void RegisterShutdownEvent(EventWaitHandle handle)
+    {
+        _shutdownEvent = handle;
     }
 
     private WindowIcon LoadWindowIcon()
@@ -171,6 +181,20 @@ public partial class App : Application
             _activationWaitHandle = ThreadPool.RegisterWaitForSingleObject(
                 _activationEvent,
                 (_, _) => Dispatcher.UIThread.Post(() => ShowMainWindow(mainWindow)),
+                null,
+                -1,
+                false);
+        }
+
+        if (_shutdownEvent is not null)
+        {
+            _shutdownWaitHandle = ThreadPool.RegisterWaitForSingleObject(
+                _shutdownEvent,
+                (_, _) => Dispatcher.UIThread.Post(() =>
+                {
+                    DiagnosticLogger.Log("Shutdown event received.");
+                    desktop.Shutdown();
+                }),
                 null,
                 -1,
                 false);
@@ -256,6 +280,8 @@ public partial class App : Application
 
         _activationWaitHandle?.Unregister(null);
         _activationWaitHandle = null;
+        _shutdownWaitHandle?.Unregister(null);
+        _shutdownWaitHandle = null;
 
         if (_services is null)
         {

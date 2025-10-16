@@ -57,6 +57,12 @@ public class ChatMessageTests
             {
                 { "ChatRole.Assistant", "模型" }
             };
+
+            var currentField = typeof(LocalizationService).GetField("_currentDictionary", BindingFlags.Instance | BindingFlags.NonPublic);
+            currentField?.SetValue(service, cache["en-US"]);
         }
+
+        var instanceField = typeof(LocalizationService).GetField("_instance", BindingFlags.Static | BindingFlags.NonPublic);
+        instanceField?.SetValue(null, service);
     }
 }

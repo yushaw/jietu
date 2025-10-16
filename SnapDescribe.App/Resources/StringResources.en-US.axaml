@@ -13,6 +13,7 @@
   <!-- Sections -->
   <x:String x:Key="Section.ApiConfig">API Configuration</x:String>
   <x:String x:Key="Section.CaptureAndStorage">Capture &amp; Storage</x:String>
+  <x:String x:Key="Section.AgentConfig">Agent Orchestration</x:String>
 
   <!-- Buttons -->
   <x:String x:Key="Button.Capture">Screenshot</x:String>
@@ -25,6 +26,10 @@
   <x:String x:Key="Button.RefreshDirectory">Refresh Directory</x:String>
   <x:String x:Key="Button.Send">Send</x:String>
   <x:String x:Key="Button.Browse">Browse...</x:String>
+  <x:String x:Key="Button.AddParameter">Add Parameter</x:String>
+  <x:String x:Key="Button.Remove">Remove</x:String>
+  <x:String x:Key="Button.CopySegment">Copy</x:String>
+  <x:String x:Key="Button.CopyAll">Copy All</x:String>
 
   <!-- Labels -->
   <x:String x:Key="Label.CaptureHint">Hint: Click a highlighted window to capture, drag for a custom region, press Esc to cancel.</x:String>
@@ -39,6 +44,7 @@
   <x:String x:Key="Label.ProcessName">Process Name (required)</x:String>
   <x:String x:Key="Label.WindowTitle">Window Title</x:String>
   <x:String x:Key="Label.Capability">Capability</x:String>
+  <x:String x:Key="Label.CapabilityParameters">Capability Parameters</x:String>
   <x:String x:Key="Label.Prompt">Prompt / Configuration</x:String>
   <x:String x:Key="Label.DefaultPrompt">Default Prompt</x:String>
   <x:String x:Key="Label.CaptureHotkey">Capture Hotkey</x:String>
@@ -51,11 +57,18 @@
   <x:String x:Key="Label.BaseUrl">Base URL</x:String>
   <x:String x:Key="Label.ModelName">Model</x:String>
   <x:String x:Key="Label.LaunchOnStartup">Launch on startup</x:String>
+  <x:String x:Key="Label.OcrDataPath">Tesseract tessdata path</x:String>
 
   <!-- Watermarks -->
   <x:String x:Key="Watermark.ProcessName">Example: chrome or chrome.exe</x:String>
   <x:String x:Key="Watermark.WindowTitle">Optional: partial match supported</x:String>
   <x:String x:Key="Watermark.ChatInput">Ask follow-up questions or request the next action...</x:String>
+  <x:String x:Key="Watermark.ParameterKey">Key (e.g. language)</x:String>
+  <x:String x:Key="Watermark.ParameterValue">Value (e.g. chi_sim+eng)</x:String>
+
+  <!-- Hints -->
+  <x:String x:Key="Hint.OcrDataPath">Leave blank if tessdata is placed next to SnapDescribe.</x:String>
+  <x:String x:Key="Hint.CapabilityParameters">Add key-value pairs to configure OCR at the rule level.</x:String>
 
   <!-- Language options -->
   <x:String x:Key="Language.English">English</x:String>
@@ -72,6 +85,13 @@
   <x:String x:Key="Status.Completed">Completed.</x:String>
   <x:String x:Key="Status.GenerateFailed">Generation failed.</x:String>
   <x:String x:Key="Status.CapabilityPending">Capability assigned. Manage it from its dedicated interface.</x:String>
+  <x:String x:Key="Status.OcrInProgress">Running OCR...</x:String>
+  <x:String x:Key="Status.OcrCompleted">OCR completed.</x:String>
+  <x:String x:Key="Status.OcrFailed">OCR failed: {0}</x:String>
+  <x:String x:Key="Status.AgentInProgress">Running agent workflow...</x:String>
+  <x:String x:Key="Status.AgentCompleted">Agent run completed.</x:String>
+  <x:String x:Key="Status.AgentInvokeFailed">Agent run failed: {0}</x:String>
+  <x:String x:Key="Status.AgentFailed">Agent run failed.</x:String>
   <x:String x:Key="Status.RuleAdded">Rule added. Please complete required fields before saving.</x:String>
   <x:String x:Key="Status.FillRequired">Please complete the required fields first.</x:String>
   <x:String x:Key="Status.PromptSaved">Trigger rules saved.</x:String>
@@ -87,12 +107,15 @@
   <!-- Response placeholders -->
   <x:String x:Key="Response.Generating">The model is generating a response...</x:String>
   <x:String x:Key="Response.CapabilityPending">This capability will be handled in its dedicated interface soon.</x:String>
+  <x:String x:Key="Response.OcrPending">OCR task queued. Results will appear here shortly.</x:String>
+  <x:String x:Key="Response.AgentPreparing">Preparing agent workflow...</x:String>
 
   <!-- Capabilities -->
   <x:String x:Key="Capability.LanguageModel">Language Model (default)</x:String>
+  <x:String x:Key="Capability.Agent">Autogen Agent Pipeline</x:String>
   <x:String x:Key="Capability.ExternalTool">External Tool (coming soon)</x:String>
-  <x:String x:Key="Capability.Ocr">OCR (coming soon)</x:String>
-  <x:String x:Key="Capability.PlaceholderHint">More capability options and settings will appear here in upcoming versions.</x:String>
+  <x:String x:Key="Capability.Ocr">Optical Character Recognition</x:String>
+  <x:String x:Key="Capability.PlaceholderHint">Configure OCR by setting the tessdata path above.</x:String>
 
   <!-- Errors -->
   <x:String x:Key="Error.MissingImageData">Unable to read screenshot data.</x:String>
@@ -104,6 +127,11 @@
   <x:String x:Key="Markdown.Process">- Process: {0}</x:String>
   <x:String x:Key="Markdown.WindowTitle">- Window Title: {0}</x:String>
   <x:String x:Key="Markdown.PromptUsed">- Prompt Used: {0}</x:String>
+  <x:String x:Key="Markdown.OcrTitle"># OCR Transcript</x:String>
+  <x:String x:Key="Markdown.OcrSegmentHeading">Segment {0}</x:String>
+  <x:String x:Key="Markdown.OcrEmpty">No text was recognised.</x:String>
+  <x:String x:Key="Markdown.OcrLanguages">- OCR Languages: {0}</x:String>
+  <x:String x:Key="Markdown.OcrLanguagesUnknown">- OCR Languages: not specified</x:String>
 
   <!-- Tray menu -->
   <x:String x:Key="Tray.Open">Open Main Window</x:String>
@@ -117,10 +145,13 @@
   <x:String x:Key="Dialog.WindowTitle">Window Title</x:String>
   <x:String x:Key="Dialog.ProcessName">Process Name</x:String>
   <x:String x:Key="Dialog.PromptUsed">Prompt Used</x:String>
+  <x:String x:Key="Dialog.OcrLanguages">OCR Languages</x:String>
   <x:String x:Key="Dialog.WindowTitleMissing">No window title detected</x:String>
   <x:String x:Key="Dialog.ProcessNameMissing">No process name detected</x:String>
   <x:String x:Key="Dialog.Loading">The model is generating a response...</x:String>
   <x:String x:Key="Dialog.SelectOutputFolder">Choose screenshot output folder</x:String>
+  <x:String x:Key="Dialog.OcrEmpty">No text recognised yet.</x:String>
+  <x:String x:Key="Dialog.OcrCopyHint">Copy the full OCR transcript.</x:String>
 
   <!-- Misc -->
   <x:String x:Key="Rule.EmptyHint">Add or select a rule on the left to start editing.</x:String>
@@ -133,5 +164,41 @@
   <x:String x:Key="ChatRole.Assistant">Assistant</x:String>
   <x:String x:Key="ChatRole.User">User</x:String>
   <x:String x:Key="ChatRole.System">System</x:String>
+  <x:String x:Key="ChatRole.Tool">Tool</x:String>
   <x:String x:Key="Checkbox.Enable">Enable</x:String>
+
+  <!-- Agent -->
+  <x:String x:Key="Agent.WindowTitle">Agent Settings</x:String>
+  <x:String x:Key="Agent.Intro">Configure the Autogen-style agent pipeline before it orchestrates model calls.</x:String>
+  <x:String x:Key="Agent.EnableToggle">Enable agent orchestration</x:String>
+  <x:String x:Key="Agent.RunToolsBeforeModel">Run tools before calling the model</x:String>
+  <x:String x:Key="Agent.IncludeToolOutput">Include tool outputs in model context</x:String>
+  <x:String x:Key="Agent.SystemPromptLabel">System prompt</x:String>
+  <x:String x:Key="Agent.SystemPromptHint">Provide global instructions for the coordinator agent.</x:String>
+  <x:String x:Key="Agent.ToolListHeading">Registered tools</x:String>
+  <x:String x:Key="Agent.AddTool">Add Tool</x:String>
+  <x:String x:Key="Agent.DuplicateTool">Duplicate</x:String>
+  <x:String x:Key="Agent.RemoveTool">Remove</x:String>
+  <x:String x:Key="Agent.ToolDetailHeading">Tool details</x:String>
+  <x:String x:Key="Agent.ToolName">Name</x:String>
+  <x:String x:Key="Agent.ToolDescription">Description</x:String>
+  <x:String x:Key="Agent.ToolCommandLabel">Command</x:String>
+  <x:String x:Key="Agent.ToolCommandLine">Command: {0} {1}</x:String>
+  <x:String x:Key="Agent.ToolArguments">Arguments template</x:String>
+  <x:String x:Key="Agent.ToolArgumentsHint">Use placeholders like {prompt}, {message}, {imagePath}.</x:String>
+  <x:String x:Key="Agent.ToolTimeoutLabel">Timeout (seconds)</x:String>
+  <x:String x:Key="Agent.ToolAutoRun">Auto-run for each request</x:String>
+  <x:String x:Key="Agent.Reset">Reset</x:String>
+  <x:String x:Key="Agent.Save">Save</x:String>
+  <x:String x:Key="Agent.Close">Close</x:String>
+  <x:String x:Key="Agent.ConfigHint">Customize agents, tools, and prompts in a dedicated window.</x:String>
+  <x:String x:Key="Agent.OpenSettings">Open Agent Settings</x:String>
+  <x:String x:Key="Agent.ToolHeading">Tool: {0}</x:String>
+  <x:String x:Key="Agent.ToolExitCode">Exit code: {0}</x:String>
+  <x:String x:Key="Agent.ToolOutputHeading">Captured output</x:String>
+  <x:String x:Key="Agent.ToolErrorHeading">Captured error</x:String>
+  <x:String x:Key="Agent.ToolTimeoutNotice">Timed out after {0} seconds</x:String>
+  <x:String x:Key="Agent.ToolDefaultName">New Tool</x:String>
+  <x:String x:Key="Agent.ToolDefaultDescription">Describe what this tool does.</x:String>
+  <x:String x:Key="Agent.ToolsEmptyHint">No tools yet. Add one to integrate CLI or scripts.</x:String>
 </ResourceDictionary>

@@ -141,6 +141,26 @@
                                             </ListBox.ItemTemplate>
                                         </ListBox>
                                     </Border>
+
+                                    <Border Background="White"
+                                            CornerRadius="12"
+                                            Padding="20"
+                                            Classes="card">
+                                        <StackPanel Spacing="12">
+                                            <TextBlock Text="{DynamicResource Section.AgentConfig}"
+                                                       FontSize="18"
+                                                       FontWeight="SemiBold"
+                                                       Foreground="#1F2433" />
+                                            <TextBlock Text="{DynamicResource Agent.ConfigHint}"
+                                                       FontSize="12"
+                                                       Foreground="#7A8199"
+                                                       TextWrapping="Wrap" />
+                                            <Button Content="{DynamicResource Agent.OpenSettings}"
+                                                    Classes="primary"
+                                                    Width="220"
+                                                    Command="{Binding OpenAgentSettingsCommand}" />
+                                        </StackPanel>
+                                    </Border>
                                 </StackPanel>
 
                                 <Border Grid.Column="1"
@@ -214,7 +234,7 @@
                                                        FontWeight="SemiBold"
                                                        Foreground="#1F2433" />
                                             <Grid ColumnDefinitions="160,*"
-                                                  RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto"
+                                                  RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto"
                                                   RowSpacing="12"
                                                   ColumnSpacing="12">
                                                 <TextBlock Grid.Row="0" Grid.Column="0" VerticalAlignment="Center" Text="{DynamicResource Label.DefaultPrompt}" />
@@ -268,14 +288,30 @@
                                                             Command="{Binding RefreshOutputFolderCommand}" />
                                                 </StackPanel>
 
-                                                <TextBlock Grid.Row="5" Grid.Column="0" VerticalAlignment="Center" Text="{DynamicResource Label.LaunchOnStartup}" />
+                                                <TextBlock Grid.Row="5" Grid.Column="0" VerticalAlignment="Center" Text="{DynamicResource Label.OcrDataPath}" />
+                                                <StackPanel Grid.Row="5"
+                                                            Grid.Column="1"
+                                                            Orientation="Horizontal"
+                                                            Spacing="8">
+                                                    <TextBox x:Name="OcrDataPathTextBox"
+                                                             Width="360"
+                                                             Text="{Binding Settings.OcrTessDataPath, UpdateSourceTrigger=PropertyChanged}" />
+                                                    <TextBlock Text="{DynamicResource Hint.OcrDataPath}"
+                                                               FontSize="11"
+                                                               Foreground="#9CA3AF"
+                                                               VerticalAlignment="Center"
+                                                               TextWrapping="Wrap"
+                                                               Width="220" />
+                                                </StackPanel>
+
+                                                <TextBlock Grid.Row="6" Grid.Column="0" VerticalAlignment="Center" Text="{DynamicResource Label.LaunchOnStartup}" />
                                                 <CheckBox x:Name="LaunchOnStartupCheckBox"
-                                                          Grid.Row="5"
+                                                          Grid.Row="6"
                                                           Grid.Column="1"
                                                           Content="{DynamicResource Checkbox.Enable}"
                                                           IsChecked="{Binding Settings.LaunchOnStartup, Mode=TwoWay}" />
 
-                                                <Button Grid.Row="6"
+                                                <Button Grid.Row="7"
                                                         Grid.Column="1"
                                                         Classes="primary"
                                                         Content="{DynamicResource Button.SaveSettings}"
@@ -373,7 +409,7 @@
 
                                         <Grid Grid.Row="1"
                                               ColumnDefinitions="160,*"
-                                              RowDefinitions="Auto,Auto,Auto,Auto,Auto"
+                                              RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto"
                                               RowSpacing="12"
                                               ColumnSpacing="12">
                                             <TextBlock Grid.Row="0" Grid.Column="0" VerticalAlignment="Center" Text="{DynamicResource Label.ProcessName}" />
@@ -410,16 +446,53 @@
                                                            IsVisible="{Binding ShowCapabilityPlaceholder}" />
                                             </StackPanel>
 
-                                            <TextBlock Grid.Row="3" Grid.Column="0" VerticalAlignment="Center" Text="{DynamicResource Label.Prompt}" />
-                                            <TextBox Grid.Row="3"
+                                            <StackPanel Grid.Row="3"
+                                                        Grid.Column="1"
+                                                        Spacing="10"
+                                                        IsVisible="{Binding ShowCapabilityParameters}">
+                                                <ItemsControl ItemsSource="{Binding SelectedPromptRule.Parameters}">
+                                                    <ItemsControl.ItemTemplate>
+                                                        <DataTemplate>
+                                                            <Grid ColumnDefinitions="150,*,Auto"
+                                                                  ColumnSpacing="8">
+                                                                <TextBox Grid.Column="0"
+                                                                         Text="{Binding Key, UpdateSourceTrigger=PropertyChanged}"
+                                                                         Watermark="{DynamicResource Watermark.ParameterKey}" />
+                                                                <TextBox Grid.Column="1"
+                                                                         Text="{Binding Value, UpdateSourceTrigger=PropertyChanged}"
+                                                                         Watermark="{DynamicResource Watermark.ParameterValue}" />
+                                                                <Button Grid.Column="2"
+                                                                        Classes="ghost"
+                                                                        Content="{DynamicResource Button.Remove}"
+                                                                        Command="{Binding DataContext.RemoveCapabilityParameterCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                        CommandParameter="{Binding}" />
+                                                            </Grid>
+                                                        </DataTemplate>
+                                                    </ItemsControl.ItemTemplate>
+                                                </ItemsControl>
+                                                <StackPanel Orientation="Horizontal" Spacing="10">
+                                                    <Button Content="{DynamicResource Button.AddParameter}"
+                                                            Classes="outline"
+                                                            Command="{Binding AddCapabilityParameterCommand}" />
+                                                    <TextBlock Text="{DynamicResource Hint.CapabilityParameters}"
+                                                               FontSize="11"
+                                                               Foreground="#7A8199"
+                                                               VerticalAlignment="Center"
+                                                               IsVisible="{Binding ShowCapabilityParameterHint}" />
+                                                </StackPanel>
+                                            </StackPanel>
+
+                                            <TextBlock Grid.Row="4" Grid.Column="0" VerticalAlignment="Center" Text="{DynamicResource Label.Prompt}" IsVisible="{Binding IsSelectedCapabilityLanguageModel}" />
+                                            <TextBox Grid.Row="4"
                                                      Grid.Column="1"
                                                      AcceptsReturn="True"
                                                      Height="160"
                                                      TextWrapping="Wrap"
                                                      Text="{Binding SelectedPromptRule.Prompt, UpdateSourceTrigger=PropertyChanged}"
+                                                     IsVisible="{Binding IsSelectedCapabilityLanguageModel}"
                                                      IsEnabled="{Binding IsSelectedCapabilityLanguageModel}" />
 
-                                            <Button Grid.Row="4"
+                                            <Button Grid.Row="5"
                                                     Grid.Column="1"
                                                     Content="{DynamicResource Button.SaveRule}"
                                                     Command="{Binding SavePromptRulesCommand}"

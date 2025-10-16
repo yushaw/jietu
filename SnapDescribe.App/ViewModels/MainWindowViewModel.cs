@@ -31,8 +31,12 @@ public partial class MainWindowViewModel : ObservableObject
     private readonly RelayCommand _movePromptRuleUpCommand;
     private readonly RelayCommand _movePromptRuleDownCommand;
     private readonly RelayCommand _savePromptRulesCommand;
+    private readonly RelayCommand _addParameterCommand;
+    private readonly RelayCommand<CapabilityParameter> _removeParameterCommand;
     private readonly StartupRegistrationService _startupService;
     private readonly CapabilityResolver _capabilityResolver;
+    private readonly IOcrService _ocrService;
+    private readonly IAgentExecutionService _agentExecutionService;
     private string? _lastStatusResourceKey;
     private object[] _lastStatusArgs = Array.Empty<object>();
     private readonly DispatcherTimer _statusTimer;
@@ -47,9 +51,11 @@ public partial class MainWindowViewModel : ObservableObject
     private bool _hotkeysRegistered;
     private int _captureHotkeyId = -1;
     private PromptRule? _subscribedPromptRule;
+    private readonly List<CapabilityParameter> _observedParameters = new();
 
     public event EventHandler<CaptureRecord>? CaptureCompleted;
     public event EventHandler<bool>? RequestMainWindowVisibility;
+    public event EventHandler? AgentSettingsRequested;
 
     [ObservableProperty]
     private CaptureRecord? selectedRecord;
@@ -81,7 +87,9 @@ public partial class MainWindowViewModel : ObservableObject
         GlobalHotkeyService hotkeyService,
         LocalizationService localizationService,
         StartupRegistrationService startupRegistrationService,
-        CapabilityResolver capabilityResolver)
+        CapabilityResolver capabilityResolver,
+        IAgentExecutionService agentExecutionService,
+        IOcrService ocrService)
     {
         _screenshotService = screenshotService;
         _settingsService = settingsService;
@@ -90,6 +98,8 @@ public partial class MainWindowViewModel : ObservableObject
         _localization = localizationService;
         _startupService = startupRegistrationService;
         _capabilityResolver = capabilityResolver;
+        _agentExecutionService = agentExecutionService;
+        _ocrService = ocrService;
         _statusTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(4) };
         _statusTimer.Tick += (_, _) =>
         {
@@ -107,10 +117,15 @@ public partial class MainWindowViewModel : ObservableObject
         _movePromptRuleUpCommand = new RelayCommand(() => MoveSelectedPromptRule(-1), () => CanMoveSelectedPromptRule(-1));
         _movePromptRuleDownCommand = new RelayCommand(() => MoveSelectedPromptRule(1), () => CanMoveSelectedPromptRule(1));
         _savePromptRulesCommand = new RelayCommand(SavePromptRules, CanSavePromptRules);
+        _addParameterCommand = new RelayCommand(AddCapabilityParameter, CanAddCapabilityParameter);
+        _removeParameterCommand = new RelayCommand<CapabilityParameter>(RemoveCapabilityParameter, CanRemoveCapabilityParameter);
         RemovePromptRuleCommand = _removePromptRuleCommand;
         MovePromptRuleUpCommand = _movePromptRuleUpCommand;
         MovePromptRuleDownCommand = _movePromptRuleDownCommand;
         SavePromptRulesCommand = _savePromptRulesCommand;
+        AddCapabilityParameterCommand = _addParameterCommand;
+        RemoveCapabilityParameterCommand = _removeParameterCommand;
+        OpenAgentSettingsCommand = new RelayCommand(() => AgentSettingsRequested?.Invoke(this, EventArgs.Empty));
 
         History = new ObservableCollection<CaptureRecord>();
         CapabilityOptions = new ObservableCollection<CapabilityOption>();
@@ -175,6 +190,12 @@ public partial class MainWindowViewModel : ObservableObject
     public bool IsSelectedCapabilityLanguageModel => SelectedPromptRule is not null
         && string.Equals(SelectedPromptRule.CapabilityId, CapabilityIds.LanguageModel, StringComparison.OrdinalIgnoreCase);
 
+    public bool IsSelectedCapabilityAgent => SelectedPromptRule is not null
+        && string.Equals(SelectedPromptRule.CapabilityId, CapabilityIds.Agent, StringComparison.OrdinalIgnoreCase);
+
+    public bool IsSelectedCapabilityOcr => SelectedPromptRule is not null
+        && string.Equals(SelectedPromptRule.CapabilityId, CapabilityIds.Ocr, StringComparison.OrdinalIgnoreCase);
+
     public bool ShowCapabilityPlaceholder => SelectedPromptRule is not null && !SelectedCapabilityIsAvailable;
 
     public IAsyncRelayCommand CaptureCommand { get; }
@@ -193,11 +214,21 @@ public partial class MainWindowViewModel : ObservableObject
 
     public IRelayCommand SavePromptRulesCommand { get; }
 
+    public IRelayCommand AddCapabilityParameterCommand { get; }
+
+    public IRelayCommand RemoveCapabilityParameterCommand { get; }
+
+    public IRelayCommand OpenAgentSettingsCommand { get; }
+
     public string? SelectedMarkdownForCopy => SelectedRecord?.ResponseMarkdown;
 
     public bool HasSelectedPromptRule => SelectedPromptRule is not null;
 
     public bool NoPromptRuleSelected => SelectedPromptRule is null;
+
+    public bool ShowCapabilityParameters => SelectedPromptRule is not null && !IsSelectedCapabilityLanguageModel && !IsSelectedCapabilityAgent && !IsSelectedCapabilityOcr;
+
+    public bool ShowCapabilityParameterHint => ShowCapabilityParameters && (SelectedPromptRule?.Parameters.Count ?? 0) == 0;
 
     partial void OnSelectedRecordChanged(CaptureRecord? value)
     {
@@ -214,7 +245,11 @@ public partial class MainWindowViewModel : ObservableObject
         OnPropertyChanged(nameof(SelectedCapabilityOption));
         OnPropertyChanged(nameof(SelectedCapabilityIsAvailable));
         OnPropertyChanged(nameof(IsSelectedCapabilityLanguageModel));
+        OnPropertyChanged(nameof(IsSelectedCapabilityAgent));
+        OnPropertyChanged(nameof(IsSelectedCapabilityOcr));
         OnPropertyChanged(nameof(ShowCapabilityPlaceholder));
+        OnPropertyChanged(nameof(ShowCapabilityParameters));
+        OnPropertyChanged(nameof(ShowCapabilityParameterHint));
         UpdatePromptRuleValidation();
     }
 
@@ -389,9 +424,15 @@ public partial class MainWindowViewModel : ObservableObject
         var plan = _capabilityResolver.Resolve(Settings, result.ProcessName, result.WindowTitle);
         var prompt = plan.GetParameter("prompt") ?? Settings.DefaultPrompt;
         var isLanguageModel = string.Equals(plan.CapabilityId, CapabilityIds.LanguageModel, StringComparison.OrdinalIgnoreCase);
+        var isAgentCapability = string.Equals(plan.CapabilityId, CapabilityIds.Agent, StringComparison.OrdinalIgnoreCase);
+        var isOcr = string.Equals(plan.CapabilityId, CapabilityIds.Ocr, StringComparison.OrdinalIgnoreCase);
         var initialResponse = isLanguageModel
             ? _localization.GetString("Response.Generating")
-            : _localization.GetString("Response.CapabilityPending");
+            : isAgentCapability
+                ? _localization.GetString("Response.AgentPreparing")
+                : isOcr
+                    ? _localization.GetString("Response.OcrPending")
+                    : _localization.GetString("Response.CapabilityPending");
 
         var record = new CaptureRecord
         {
@@ -405,7 +446,7 @@ public partial class MainWindowViewModel : ObservableObject
             WindowTitle = result.WindowTitle,
             Preview = result.Preview,
             ResponseMarkdown = initialResponse,
-            IsLoading = isLanguageModel,
+            IsLoading = isLanguageModel || isAgentCapability || isOcr,
             ImageBytes = result.PngBytes
         };
 
@@ -413,6 +454,14 @@ public partial class MainWindowViewModel : ObservableObject
         {
             record.Conversation.Add(new ChatMessage("user", prompt, includeImage: true));
             SetStatusFromResource("Status.RequestingModel", autoClear: false);
+        }
+        else if (isAgentCapability)
+        {
+            SetStatusFromResource("Status.AgentInProgress", autoClear: false);
+        }
+        else if (isOcr)
+        {
+            SetStatusFromResource("Status.OcrInProgress", autoClear: false);
         }
         else
         {
@@ -430,6 +479,14 @@ public partial class MainWindowViewModel : ObservableObject
         if (isLanguageModel)
         {
             await ExecuteLanguageModelCapabilityAsync(record, markdownPath);
+        }
+        else if (isAgentCapability)
+        {
+            await ExecuteAgentCapabilityAsync(record, markdownPath, prompt);
+        }
+        else if (isOcr)
+        {
+            await ExecuteOcrCapabilityAsync(record, markdownPath, plan);
         }
         else
         {
@@ -476,6 +533,104 @@ public partial class MainWindowViewModel : ObservableObject
         await SaveRecordMetadataAsync(record);
     }
 
+    private async Task ExecuteAgentCapabilityAsync(CaptureRecord record, string markdownPath, string prompt)
+    {
+        var success = false;
+        try
+        {
+            var result = await _agentExecutionService.ExecuteAsync(Settings, record, prompt, includeImage: true);
+
+            await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                foreach (var message in result.MessagesToAppend)
+                {
+                    record.Conversation.Add(message);
+                }
+
+                if (!string.IsNullOrWhiteSpace(result.Response))
+                {
+                    record.ResponseMarkdown = result.Response;
+                }
+
+                record.IsLoading = false;
+                SetStatusFromResource("Status.AgentCompleted");
+            });
+
+            await File.WriteAllTextAsync(markdownPath, BuildConversationMarkdown(record), Encoding.UTF8);
+            success = true;
+        }
+        catch (Exception ex)
+        {
+            DiagnosticLogger.Log("Agent execution failed while generating description", ex);
+            var failure = SanitizeResponse(_localization.GetString("Status.AgentInvokeFailed", ex.Message));
+            await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                record.Conversation.Add(new ChatMessage("assistant", failure));
+                record.ResponseMarkdown = failure;
+                record.IsLoading = false;
+            });
+            await File.WriteAllTextAsync(markdownPath, BuildConversationMarkdown(record), Encoding.UTF8);
+        }
+        finally
+        {
+            if (!success)
+            {
+                SetStatusFromResource("Status.AgentFailed");
+            }
+
+            await SaveRecordMetadataAsync(record);
+        }
+    }
+
+    private async Task ExecuteOcrCapabilityAsync(CaptureRecord record, string markdownPath, CapabilityInvocationPlan plan)
+    {
+        var language = plan.GetParameter("language") ?? plan.GetParameter("languages");
+        var requestedLanguages = string.IsNullOrWhiteSpace(language) ? Settings.OcrDefaultLanguages : language;
+        var success = false;
+        try
+        {
+            record.OcrLanguages = requestedLanguages;
+            var result = await _ocrService.RecognizeAsync(record.ImageBytes, requestedLanguages);
+            await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                record.OcrSegments.Clear();
+                foreach (var segment in result.Segments)
+                {
+                    record.OcrSegments.Add(segment);
+                }
+
+                record.OcrLanguages = result.Languages;
+                record.ResponseMarkdown = result.PlainText;
+            });
+
+            await File.WriteAllTextAsync(markdownPath, BuildOcrMarkdown(record), Encoding.UTF8);
+            success = true;
+        }
+        catch (Exception ex)
+        {
+            DiagnosticLogger.Log("OCR invocation failed while processing screenshot", ex);
+            var message = _localization.GetString("Status.OcrFailed", ex.Message);
+            await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                record.OcrSegments.Clear();
+                record.OcrLanguages = requestedLanguages;
+                record.ResponseMarkdown = SanitizeResponse(message);
+            });
+            await File.WriteAllTextAsync(markdownPath, BuildOcrMarkdown(record), Encoding.UTF8);
+            SetStatus(message, autoClear: false);
+        }
+        finally
+        {
+            await Dispatcher.UIThread.InvokeAsync(() => record.IsLoading = false);
+            if (success)
+            {
+                SetStatusFromResource("Status.OcrCompleted");
+            }
+        }
+
+        await SaveRecordMetadataAsync(record);
+    }
+
     public async Task ContinueConversationAsync(CaptureRecord record, string userMessage)
     {
         if (record is null || !record.SupportsChat)
@@ -489,6 +644,12 @@ public partial class MainWindowViewModel : ObservableObject
         }
 
         userMessage = userMessage.Trim();
+
+        if (string.Equals(record.CapabilityId, CapabilityIds.Agent, StringComparison.OrdinalIgnoreCase))
+        {
+            await ContinueAgentConversationAsync(record, userMessage);
+            return;
+        }
 
         await Dispatcher.UIThread.InvokeAsync(() =>
         {
@@ -551,6 +712,84 @@ public partial class MainWindowViewModel : ObservableObject
         catch (Exception ex)
         {
             DiagnosticLogger.Log("Failed to write conversation markdown", ex);
+        }
+
+        await SaveRecordMetadataAsync(record);
+    }
+
+    private async Task ContinueAgentConversationAsync(CaptureRecord record, string userMessage)
+    {
+        await Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            record.Conversation.Add(new ChatMessage("user", userMessage));
+            record.IsLoading = true;
+            SetStatusFromResource("Status.AgentInProgress", autoClear: false);
+        });
+
+        if (record.ImageBytes is null or { Length: 0 })
+        {
+            try
+            {
+                record.ImageBytes = File.Exists(record.ImagePath)
+                    ? await File.ReadAllBytesAsync(record.ImagePath)
+                    : Array.Empty<byte>();
+            }
+            catch (Exception ex)
+            {
+                DiagnosticLogger.Log("Failed to reload screenshot file", ex);
+            }
+        }
+
+        try
+        {
+            var result = await _agentExecutionService.ContinueAsync(Settings, record, userMessage);
+
+            await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                foreach (var message in result.MessagesToAppend)
+                {
+                    record.Conversation.Add(message);
+                }
+
+                if (!string.IsNullOrWhiteSpace(result.Response))
+                {
+                    record.ResponseMarkdown = result.Response;
+                }
+
+                record.IsLoading = false;
+                SetStatusFromResource("Status.AgentCompleted");
+            });
+
+            try
+            {
+                await File.WriteAllTextAsync(record.MarkdownPath, BuildConversationMarkdown(record), Encoding.UTF8);
+            }
+            catch (Exception ex)
+            {
+                DiagnosticLogger.Log("Failed to write conversation markdown", ex);
+            }
+        }
+        catch (Exception ex)
+        {
+            DiagnosticLogger.Log("Agent continuation failed", ex);
+            var failure = SanitizeResponse(_localization.GetString("Status.AgentInvokeFailed", ex.Message));
+
+            await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                record.Conversation.Add(new ChatMessage("assistant", failure));
+                record.ResponseMarkdown = failure;
+                record.IsLoading = false;
+                SetStatusFromResource("Status.AgentFailed");
+            });
+
+            try
+            {
+                await File.WriteAllTextAsync(record.MarkdownPath, BuildConversationMarkdown(record), Encoding.UTF8);
+            }
+            catch (Exception writeEx)
+            {
+                DiagnosticLogger.Log("Failed to write conversation markdown", writeEx);
+            }
         }
 
         await SaveRecordMetadataAsync(record);
@@ -661,12 +900,39 @@ public partial class MainWindowViewModel : ObservableObject
         }
     }
 
+    private bool CanAddCapabilityParameter() => ShowCapabilityParameters;
+
+    private void AddCapabilityParameter()
+    {
+        // No parameters currently used outside of language model prompts.
+    }
+
+    private bool CanRemoveCapabilityParameter(CapabilityParameter? parameter)
+        => ShowCapabilityParameters && parameter is not null && SelectedPromptRule?.Parameters.Contains(parameter) == true;
+
+    private void RemoveCapabilityParameter(CapabilityParameter? parameter)
+    {
+        if (SelectedPromptRule is null || parameter is null)
+        {
+            return;
+        }
+
+        if (SelectedPromptRule.Parameters.Remove(parameter))
+        {
+            parameter.PropertyChanged -= CapabilityParameterOnPropertyChanged;
+            _observedParameters.Remove(parameter);
+            UpdatePromptRuleValidation();
+        }
+    }
+
     private void UpdatePromptRuleCommandStates()
     {
         _removePromptRuleCommand.NotifyCanExecuteChanged();
         _movePromptRuleUpCommand.NotifyCanExecuteChanged();
         _movePromptRuleDownCommand.NotifyCanExecuteChanged();
         _savePromptRulesCommand.NotifyCanExecuteChanged();
+        _addParameterCommand.NotifyCanExecuteChanged();
+        _removeParameterCommand.NotifyCanExecuteChanged();
     }
 
     private void RefreshCapabilityOptions()
@@ -674,8 +940,9 @@ public partial class MainWindowViewModel : ObservableObject
         var options = new List<CapabilityOption>
         {
             new CapabilityOption(CapabilityIds.LanguageModel, _localization.GetString("Capability.LanguageModel"), isAvailable: true),
+            new CapabilityOption(CapabilityIds.Agent, _localization.GetString("Capability.Agent"), Settings.Agent?.IsEnabled ?? false),
             new CapabilityOption(CapabilityIds.ExternalTool, _localization.GetString("Capability.ExternalTool"), isAvailable: false),
-            new CapabilityOption(CapabilityIds.Ocr, _localization.GetString("Capability.Ocr"), isAvailable: false)
+            new CapabilityOption(CapabilityIds.Ocr, _localization.GetString("Capability.Ocr"), _ocrService.IsAvailable)
         };
 
         CapabilityOptions.Clear();
@@ -687,7 +954,11 @@ public partial class MainWindowViewModel : ObservableObject
         OnPropertyChanged(nameof(SelectedCapabilityOption));
         OnPropertyChanged(nameof(SelectedCapabilityIsAvailable));
         OnPropertyChanged(nameof(IsSelectedCapabilityLanguageModel));
+        OnPropertyChanged(nameof(IsSelectedCapabilityAgent));
+        OnPropertyChanged(nameof(IsSelectedCapabilityOcr));
         OnPropertyChanged(nameof(ShowCapabilityPlaceholder));
+        OnPropertyChanged(nameof(ShowCapabilityParameters));
+        OnPropertyChanged(nameof(ShowCapabilityParameterHint));
     }
 
     private void SavePromptRules()
@@ -741,6 +1012,12 @@ public partial class MainWindowViewModel : ObservableObject
         if (_subscribedPromptRule is not null)
         {
             _subscribedPromptRule.PropertyChanged -= PromptRuleOnPropertyChanged;
+            _subscribedPromptRule.Parameters.CollectionChanged -= PromptRuleParametersOnCollectionChanged;
+            foreach (var parameter in _observedParameters)
+            {
+                parameter.PropertyChanged -= CapabilityParameterOnPropertyChanged;
+            }
+            _observedParameters.Clear();
         }
 
         _subscribedPromptRule = rule;
@@ -748,6 +1025,12 @@ public partial class MainWindowViewModel : ObservableObject
         if (_subscribedPromptRule is not null)
         {
             _subscribedPromptRule.PropertyChanged += PromptRuleOnPropertyChanged;
+            _subscribedPromptRule.Parameters.CollectionChanged += PromptRuleParametersOnCollectionChanged;
+            foreach (var parameter in _subscribedPromptRule.Parameters)
+            {
+                parameter.PropertyChanged += CapabilityParameterOnPropertyChanged;
+                _observedParameters.Add(parameter);
+            }
         }
     }
 
@@ -764,6 +1047,44 @@ public partial class MainWindowViewModel : ObservableObject
             OnPropertyChanged(nameof(SelectedCapabilityIsAvailable));
             OnPropertyChanged(nameof(IsSelectedCapabilityLanguageModel));
             OnPropertyChanged(nameof(ShowCapabilityPlaceholder));
+            OnPropertyChanged(nameof(IsSelectedCapabilityAgent));
+            OnPropertyChanged(nameof(IsSelectedCapabilityOcr));
+            OnPropertyChanged(nameof(ShowCapabilityParameters));
+            OnPropertyChanged(nameof(ShowCapabilityParameterHint));
+            _addParameterCommand.NotifyCanExecuteChanged();
+        }
+    }
+
+    private void PromptRuleParametersOnCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        if (e is { OldItems: { Count: > 0 } oldItems })
+        {
+            foreach (CapabilityParameter parameter in oldItems)
+            {
+                parameter.PropertyChanged -= CapabilityParameterOnPropertyChanged;
+                _observedParameters.Remove(parameter);
+            }
+        }
+
+        if (e is { NewItems: { Count: > 0 } newItems })
+        {
+            foreach (CapabilityParameter parameter in newItems)
+            {
+                parameter.PropertyChanged += CapabilityParameterOnPropertyChanged;
+                _observedParameters.Add(parameter);
+            }
+        }
+
+        OnPropertyChanged(nameof(ShowCapabilityParameterHint));
+        UpdatePromptRuleValidation();
+        UpdatePromptRuleCommandStates();
+    }
+
+    private void CapabilityParameterOnPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is nameof(CapabilityParameter.Key) or nameof(CapabilityParameter.Value))
+        {
+            UpdatePromptRuleValidation();
         }
     }
 
@@ -1113,6 +1434,31 @@ public partial class MainWindowViewModel : ObservableObject
             }
         }
 
+        if (data.OcrSegments is { Length: > 0 })
+        {
+            foreach (var segment in data.OcrSegments)
+            {
+                if (string.IsNullOrWhiteSpace(segment.Text))
+                {
+                    continue;
+                }
+
+                OcrBoundingBox? bounds = null;
+                if (segment.Bounds is not null)
+                {
+                    bounds = OcrBoundingBox.FromPixels(segment.Bounds.X, segment.Bounds.Y, segment.Bounds.Width, segment.Bounds.Height);
+                }
+
+                var index = segment.Index <= 0 ? record.OcrSegments.Count + 1 : segment.Index;
+                record.OcrSegments.Add(new OcrSegment(index, segment.Text, bounds, segment.Confidence));
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(data.OcrLanguages))
+        {
+            record.OcrLanguages = data.OcrLanguages;
+        }
+
         return record;
     }
 
@@ -1138,7 +1484,25 @@ public partial class MainWindowViewModel : ObservableObject
                         Content = message.Content,
                         IncludeImage = message.IncludeImage
                     })
-                    .ToArray()
+                    .ToArray(),
+                OcrSegments = record.OcrSegments
+                    .Select(segment => new PersistedOcrSegment
+                    {
+                        Index = segment.Index,
+                        Text = segment.Text,
+                        Bounds = segment.Bounds is { } bounds
+                            ? new PersistedBoundingBox
+                            {
+                                X = bounds.X,
+                                Y = bounds.Y,
+                                Width = bounds.Width,
+                                Height = bounds.Height
+                            }
+                            : null,
+                        Confidence = segment.Confidence
+                    })
+                    .ToArray(),
+                OcrLanguages = record.OcrLanguages
             };
 
             var jsonPath = Path.ChangeExtension(record.MarkdownPath, MetadataExtension);
@@ -1191,6 +1555,49 @@ public partial class MainWindowViewModel : ObservableObject
             builder.AppendLine(_localization.GetString("Markdown.WindowTitle", record.WindowTitle));
         }
         builder.AppendLine(_localization.GetString("Markdown.PromptUsed", record.Prompt));
+        return builder.ToString();
+    }
+
+    private string BuildOcrMarkdown(CaptureRecord record)
+    {
+        var builder = new StringBuilder();
+        builder.AppendLine(_localization.GetString("Markdown.OcrTitle"));
+        builder.AppendLine();
+
+        if (!string.IsNullOrWhiteSpace(record.OcrLanguages))
+        {
+            builder.AppendLine(_localization.GetString("Markdown.OcrLanguages", record.OcrLanguages));
+        }
+        else
+        {
+            builder.AppendLine(_localization.GetString("Markdown.OcrLanguagesUnknown"));
+        }
+        builder.AppendLine();
+
+        if (!string.IsNullOrWhiteSpace(record.ResponseMarkdown))
+        {
+            builder.AppendLine(record.ResponseMarkdown.Trim());
+            builder.AppendLine();
+        }
+        else
+        {
+            builder.AppendLine(_localization.GetString("Markdown.OcrEmpty"));
+            builder.AppendLine();
+        }
+
+        builder.AppendLine("---");
+        builder.AppendLine(_localization.GetString("Markdown.ScreenshotFile", Path.GetFileName(record.ImagePath)));
+        builder.AppendLine(_localization.GetString("Markdown.GeneratedAt", record.CapturedAt));
+        if (!string.IsNullOrWhiteSpace(record.ProcessName))
+        {
+            builder.AppendLine(_localization.GetString("Markdown.Process", record.ProcessName));
+        }
+
+        if (!string.IsNullOrWhiteSpace(record.WindowTitle))
+        {
+            builder.AppendLine(_localization.GetString("Markdown.WindowTitle", record.WindowTitle));
+        }
+
         return builder.ToString();
     }
 
@@ -1268,6 +1675,12 @@ public partial class MainWindowViewModel : ObservableObject
         }
 
         SetStatusFromResource("Status.SettingsSaved");
+        RefreshCapabilityOptions();
+    }
+
+    public void RefreshAgentAvailability()
+    {
+        RefreshCapabilityOptions();
     }
 
     private void SetStatus(string message, bool autoClear = true)
@@ -1400,6 +1813,8 @@ public partial class MainWindowViewModel : ObservableObject
         public string? WindowTitle { get; set; }
         public string ResponseMarkdown { get; set; } = string.Empty;
         public PersistedMessage[] Conversation { get; set; } = Array.Empty<PersistedMessage>();
+        public PersistedOcrSegment[] OcrSegments { get; set; } = Array.Empty<PersistedOcrSegment>();
+        public string? OcrLanguages { get; set; }
 
         [JsonIgnore]
         public byte[] ImageBytes { get; set; } = Array.Empty<byte>();
@@ -1410,5 +1825,21 @@ public partial class MainWindowViewModel : ObservableObject
         public string Role { get; set; } = string.Empty;
         public string Content { get; set; } = string.Empty;
         public bool IncludeImage { get; set; }
+    }
+
+    private sealed class PersistedOcrSegment
+    {
+        public int Index { get; set; }
+        public string Text { get; set; } = string.Empty;
+        public PersistedBoundingBox? Bounds { get; set; }
+        public double Confidence { get; set; }
+    }
+
+    private sealed class PersistedBoundingBox
+    {
+        public int X { get; set; }
+        public int Y { get; set; }
+        public int Width { get; set; }
+        public int Height { get; set; }
     }
 }

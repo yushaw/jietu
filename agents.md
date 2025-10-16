@@ -58,6 +58,12 @@ When introducing a new agent or capability:
 - Log agent decisions with enough context for audit, but redact tokens or secrets.
 - Respect the offline mode: agents must honor settings that disable network calls.
 
+## Packaging Notes
+
+- Release automation (`.github/workflows/release.yml`) now produces both a portable ZIP bundle and an NSIS installer (`SnapDescribeSetup.exe`). Keep the installer script (`installer/SnapDescribeInstaller.nsi`) aligned whenever new binaries or resources are added.
+- OCR runs on bundled `tessdata` assets (`eng`, `chi_sim`). Any new language packs or native dependencies must be included in the repository and referenced by both the publish pipeline and installer.
+- The desktop client exposes a `--shutdown` CLI switch. Installers and external automation should trigger it before touching files so that the running instance can exit cleanly (the NSIS installer does this automatically before falling back to `taskkill`).
+
 ## Roadmap Alignment
 
 1. Process-aware prompt overrides ✅
@@ -68,3 +74,10 @@ When introducing a new agent or capability:
 6. AI Assistant hub ⏳
 
 Keep this document up to date as the implementation evolves.
+
+## Agent Runtime Direction
+
+- Base the runtime on the latest Autogen framework concepts (conversable agents, tool registries, and coordinators) so that we can reuse contemporary multi-agent patterns without fragmenting the ecosystem.
+- Map our internal services (`IAgent`, `IAgentContext`, `IAgentToolRunner`) to Autogen abstractions: a coordinator agent orchestrates specialized worker agents while snapshots remain deterministic for reproducibility.
+- Start with deterministic tool execution for local CLI commands; MCP adapters and remote tools will register through the same Autogen-compatible interfaces when introduced.
+- Keep the loop deterministic: resolve capability → prepare agent group → execute configured tools → feed transcripts to GLM for the final response.

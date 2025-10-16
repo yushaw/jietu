@@ -10,10 +10,16 @@ public sealed class ChatMessageRoleToColorConverter : IValueConverter
 
     private static readonly SolidColorBrush AssistantBrush = new(Color.Parse("#EEF3FF"));
     private static readonly SolidColorBrush UserBrush = new(Color.Parse("#DCFCE7"));
+    private static readonly SolidColorBrush ToolBrush = new(Color.Parse("#F3F4F6"));
 
     public object? Convert(object? value, Type targetType, object? parameter, System.Globalization.CultureInfo culture)
     {
-        return value as string == "user" ? UserBrush : AssistantBrush;
+        return value switch
+        {
+            "user" => UserBrush,
+            "tool" => ToolBrush,
+            _ => AssistantBrush
+        };
     }
 
     public object? ConvertBack(object? value, Type targetType, object? parameter, System.Globalization.CultureInfo culture)

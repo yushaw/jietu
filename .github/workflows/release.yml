@@ -24,8 +24,20 @@ jobs:
       - name: Restore dependencies
         run: dotnet restore
 
+      - name: Read version from tag
+        id: tag
+        run: echo "VERSION=${GITHUB_REF##*/}" >> $GITHUB_ENV
+
       - name: Publish Windows x64 package
-        run: dotnet publish SnapDescribe.App -c Release -r win-x64 --self-contained true /p:PublishSingleFile=true
+        run: dotnet publish SnapDescribe.App -c Release -r win-x64 --self-contained true /p:PublishSingleFile=true /p:InstallVersion=${{ env.VERSION }}
+
+      - name: Install makensis
+        run: sudo apt-get update && sudo apt-get install -y nsis
+
+      - name: Build installer
+        run: |
+          makensis -DSourceDir=$(pwd)/SnapDescribe.App/bin/Release/net8.0/win-x64/publish -DAppIcon=$(pwd)/SnapDescribe.App/Assets/AppIcon.ico -DInstallVersion=${{ env.VERSION }} installer/SnapDescribeInstaller.nsi
+          mv installer/SnapDescribeSetup.exe SnapDescribe.App/bin/Release/net8.0/win-x64/publish/
 
       - name: Package artifacts
         run: |

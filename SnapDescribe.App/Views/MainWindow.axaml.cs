@@ -1,18 +1,19 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
-using Avalonia.Platform.Storage;
 using Avalonia.Media.Imaging;
+using Avalonia.Platform.Storage;
+using Microsoft.Extensions.DependencyInjection;
 using SnapDescribe.App.Models;
-using SnapDescribe.App.ViewModels;
 using SnapDescribe.App.Services;
-using System.Linq;
+using SnapDescribe.App.ViewModels;
 
 namespace SnapDescribe.App.Views;
 
@@ -92,6 +93,7 @@ public partial class MainWindow : Window
         }
 
         _viewModel.CaptureCompleted += OnCaptureCompleted;
+        _viewModel.AgentSettingsRequested += OnAgentSettingsRequested;
         _ = _viewModel.LoadHistoryAsync();
         Opened += HandleOpened;
         Closed += HandleClosed;
@@ -147,6 +149,7 @@ public partial class MainWindow : Window
         }
 
         _viewModel.CaptureCompleted -= OnCaptureCompleted;
+        _viewModel.AgentSettingsRequested -= OnAgentSettingsRequested;
 
         var historyList = this.FindControl<ListBox>("HistoryList");
         if (historyList is not null)
@@ -166,6 +169,35 @@ public partial class MainWindow : Window
         }
 
         UnregisterSettingsFieldHandlers();
+    }
+
+    private async void OnAgentSettingsRequested(object? sender, EventArgs e)
+    {
+        if (_viewModel is null)
+        {
+            return;
+        }
+
+        var services = App.Services;
+        var settingsService = services.GetRequiredService<SettingsService>();
+        var localization = services.GetRequiredService<LocalizationService>();
+
+        var agentSettingsViewModel = new AgentSettingsViewModel(settingsService, localization);
+        void Handler(object? sender, EventArgs e)
+        {
+            _viewModel.RefreshAgentAvailability();
+        }
+
+        agentSettingsViewModel.Saved += Handler;
+
+        var window = new AgentSettingsWindow(agentSettingsViewModel)
+        {
+            WindowStartupLocation = WindowStartupLocation.CenterOwner
+        };
+
+        await window.ShowDialog(this);
+
+        agentSettingsViewModel.Saved -= Handler;
     }
 
     private async void OnHistoryDoubleTapped(object? sender, RoutedEventArgs e)
@@ -320,6 +352,7 @@ public partial class MainWindow : Window
         AttachLostFocus("DefaultPromptTextBox");
         AttachLostFocus("OutputDirectoryTextBox");
         AttachLostFocus("HistoryLimitTextBox");
+        AttachLostFocus("OcrDataPathTextBox");
         AttachToggle("LaunchOnStartupCheckBox");
     }
 
@@ -331,6 +364,7 @@ public partial class MainWindow : Window
         DetachLostFocus("DefaultPromptTextBox");
         DetachLostFocus("OutputDirectoryTextBox");
         DetachLostFocus("HistoryLimitTextBox");
+        DetachLostFocus("OcrDataPathTextBox");
         DetachToggle("LaunchOnStartupCheckBox");
     }
 

@@ -27,6 +27,7 @@ public partial class ChatMessage : ObservableObject
                 "assistant" => localization.GetString("ChatRole.Assistant"),
                 "user" => localization.GetString("ChatRole.User"),
                 "system" => localization.GetString("ChatRole.System"),
+                "tool" => localization.GetString("ChatRole.Tool"),
                 _ => Role
             };
         }

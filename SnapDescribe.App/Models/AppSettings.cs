@@ -31,4 +31,10 @@ public class AppSettings
     public bool HasSeededDefaultPromptRules { get; set; }
 
     public string Language { get; set; } = "en-US";
+
+    public string OcrTessDataPath { get; set; } = string.Empty;
+
+    public string OcrDefaultLanguages { get; set; } = "chi_sim+eng";
+
+    public AgentSettings Agent { get; set; } = new();
 }

@@ -87,6 +87,15 @@ public sealed class SettingsServiceTests : IDisposable
         Assert.Equal(initialCount, service.Current.PromptRules.Count);
     }
 
+    [Fact]
+    public void Constructor_SetsOcrDefaults()
+    {
+        var service = new SettingsService(_appData, _pictures);
+
+        Assert.Equal("chi_sim+eng", service.Current.OcrDefaultLanguages);
+        Assert.NotNull(service.Current.OcrTessDataPath);
+    }
+
     public void Dispose()
     {
         CultureInfo.CurrentUICulture = _originalCulture;

@@ -13,6 +13,7 @@
   <!-- Sections -->
   <x:String x:Key="Section.ApiConfig">接口配置</x:String>
   <x:String x:Key="Section.CaptureAndStorage">捕捉与保存</x:String>
+  <x:String x:Key="Section.AgentConfig">智能体编排</x:String>
 
   <!-- Buttons -->
   <x:String x:Key="Button.Capture">截图</x:String>
@@ -25,6 +26,10 @@
   <x:String x:Key="Button.RefreshDirectory">刷新目录</x:String>
   <x:String x:Key="Button.Send">发送</x:String>
   <x:String x:Key="Button.Browse">浏览...</x:String>
+  <x:String x:Key="Button.AddParameter">新增参数</x:String>
+  <x:String x:Key="Button.Remove">移除</x:String>
+  <x:String x:Key="Button.CopySegment">复制</x:String>
+  <x:String x:Key="Button.CopyAll">复制全部</x:String>
 
   <!-- Labels -->
   <x:String x:Key="Label.CaptureHint">提示：单击高亮窗口即可截图，拖拽选择自定义区域，按 Esc 取消。</x:String>
@@ -39,6 +44,7 @@
   <x:String x:Key="Label.ProcessName">进程名称（必填）</x:String>
   <x:String x:Key="Label.WindowTitle">窗口标题</x:String>
   <x:String x:Key="Label.Capability">能力类型</x:String>
+  <x:String x:Key="Label.CapabilityParameters">能力参数</x:String>
   <x:String x:Key="Label.Prompt">Prompt / 配置</x:String>
   <x:String x:Key="Label.DefaultPrompt">默认 Prompt</x:String>
   <x:String x:Key="Label.CaptureHotkey">捕捉热键</x:String>
@@ -51,11 +57,18 @@
   <x:String x:Key="Label.BaseUrl">Base URL</x:String>
   <x:String x:Key="Label.ModelName">模型名称</x:String>
   <x:String x:Key="Label.LaunchOnStartup">开机启动</x:String>
+  <x:String x:Key="Label.OcrDataPath">Tesseract 数据路径</x:String>
 
   <!-- Watermarks -->
   <x:String x:Key="Watermark.ProcessName">例如：chrome 或 chrome.exe</x:String>
   <x:String x:Key="Watermark.WindowTitle">可选：支持包含匹配</x:String>
   <x:String x:Key="Watermark.ChatInput">继续提问或让模型执行下一步...</x:String>
+  <x:String x:Key="Watermark.ParameterKey">参数键（如 language）</x:String>
+  <x:String x:Key="Watermark.ParameterValue">参数值（如 chi_sim+eng）</x:String>
+
+  <!-- Hints -->
+  <x:String x:Key="Hint.OcrDataPath">若 tessdata 与程序同级可留空。</x:String>
+  <x:String x:Key="Hint.CapabilityParameters">根据需要添加键值对，为不同规则覆盖 OCR 设置。</x:String>
 
   <!-- Language options -->
   <x:String x:Key="Language.English">English</x:String>
@@ -72,6 +85,13 @@
   <x:String x:Key="Status.Completed">完成。</x:String>
   <x:String x:Key="Status.GenerateFailed">生成失败。</x:String>
   <x:String x:Key="Status.CapabilityPending">已匹配到其他能力，请在对应界面处理。</x:String>
+  <x:String x:Key="Status.OcrInProgress">正在执行 OCR...</x:String>
+  <x:String x:Key="Status.OcrCompleted">OCR 已完成。</x:String>
+  <x:String x:Key="Status.OcrFailed">OCR 失败：{0}</x:String>
+  <x:String x:Key="Status.AgentInProgress">正在执行智能体工作流...</x:String>
+  <x:String x:Key="Status.AgentCompleted">智能体已完成。</x:String>
+  <x:String x:Key="Status.AgentInvokeFailed">智能体执行失败：{0}</x:String>
+  <x:String x:Key="Status.AgentFailed">智能体执行失败。</x:String>
   <x:String x:Key="Status.RuleAdded">已新增规则，请填写必填字段后保存。</x:String>
   <x:String x:Key="Status.FillRequired">请先填写必填字段。</x:String>
   <x:String x:Key="Status.PromptSaved">触发规则已保存。</x:String>
@@ -87,12 +107,15 @@
   <!-- Response placeholders -->
   <x:String x:Key="Response.Generating">模型正在生成回复...</x:String>
   <x:String x:Key="Response.CapabilityPending">该能力将在专属界面处理，敬请期待。</x:String>
+  <x:String x:Key="Response.OcrPending">OCR 任务已排队，结果稍后呈现。</x:String>
+  <x:String x:Key="Response.AgentPreparing">正在准备智能体工作流...</x:String>
 
   <!-- Capabilities -->
   <x:String x:Key="Capability.LanguageModel">语言模型（默认）</x:String>
+  <x:String x:Key="Capability.Agent">Autogen 智能体流程</x:String>
   <x:String x:Key="Capability.ExternalTool">外部工具（即将支持）</x:String>
-  <x:String x:Key="Capability.Ocr">OCR 能力（即将支持）</x:String>
-  <x:String x:Key="Capability.PlaceholderHint">更多能力配置即将上线，此处暂为占位。</x:String>
+  <x:String x:Key="Capability.Ocr">OCR 识别</x:String>
+  <x:String x:Key="Capability.PlaceholderHint">请先配置 tessdata 路径。</x:String>
 
   <!-- Errors -->
   <x:String x:Key="Error.MissingImageData">无法读取截图数据。</x:String>
@@ -104,6 +127,11 @@
   <x:String x:Key="Markdown.Process">- 进程：{0}</x:String>
   <x:String x:Key="Markdown.WindowTitle">- 窗口标题：{0}</x:String>
   <x:String x:Key="Markdown.PromptUsed">- 使用 Prompt：{0}</x:String>
+  <x:String x:Key="Markdown.OcrTitle"># OCR 识别结果</x:String>
+  <x:String x:Key="Markdown.OcrSegmentHeading">段落 {0}</x:String>
+  <x:String x:Key="Markdown.OcrEmpty">未识别到文本。</x:String>
+  <x:String x:Key="Markdown.OcrLanguages">- OCR 语言：{0}</x:String>
+  <x:String x:Key="Markdown.OcrLanguagesUnknown">- OCR 语言：未指定</x:String>
 
   <!-- Tray menu -->
   <x:String x:Key="Tray.Open">打开主界面</x:String>
@@ -117,10 +145,13 @@
   <x:String x:Key="Dialog.WindowTitle">窗口标题</x:String>
   <x:String x:Key="Dialog.ProcessName">进程名称</x:String>
   <x:String x:Key="Dialog.PromptUsed">使用 Prompt</x:String>
+  <x:String x:Key="Dialog.OcrLanguages">OCR 语言</x:String>
   <x:String x:Key="Dialog.WindowTitleMissing">未获取窗口标题</x:String>
   <x:String x:Key="Dialog.ProcessNameMissing">未获取进程名称</x:String>
   <x:String x:Key="Dialog.Loading">模型正在生成回复...</x:String>
   <x:String x:Key="Dialog.SelectOutputFolder">选择截图保存位置</x:String>
+  <x:String x:Key="Dialog.OcrEmpty">尚未识别出文字。</x:String>
+  <x:String x:Key="Dialog.OcrCopyHint">可复制完整的 OCR 文本。</x:String>
 
   <!-- Misc -->
   <x:String x:Key="Rule.EmptyHint">从左侧新增或选择一条规则即可开始编辑。</x:String>
@@ -133,5 +164,41 @@
   <x:String x:Key="ChatRole.Assistant">模型</x:String>
   <x:String x:Key="ChatRole.User">用户</x:String>
   <x:String x:Key="ChatRole.System">系统</x:String>
+  <x:String x:Key="ChatRole.Tool">工具</x:String>
   <x:String x:Key="Checkbox.Enable">启用</x:String>
+
+  <!-- Agent -->
+  <x:String x:Key="Agent.WindowTitle">智能体设置</x:String>
+  <x:String x:Key="Agent.Intro">在模型调用前配置 Autogen 风格的智能体编排与工具。</x:String>
+  <x:String x:Key="Agent.EnableToggle">启用智能体编排</x:String>
+  <x:String x:Key="Agent.RunToolsBeforeModel">在调用模型前执行工具</x:String>
+  <x:String x:Key="Agent.IncludeToolOutput">将工具输出纳入模型上下文</x:String>
+  <x:String x:Key="Agent.SystemPromptLabel">系统提示词</x:String>
+  <x:String x:Key="Agent.SystemPromptHint">为协调智能体提供全局指令。</x:String>
+  <x:String x:Key="Agent.ToolListHeading">已注册的工具</x:String>
+  <x:String x:Key="Agent.AddTool">新增工具</x:String>
+  <x:String x:Key="Agent.DuplicateTool">复制</x:String>
+  <x:String x:Key="Agent.RemoveTool">移除</x:String>
+  <x:String x:Key="Agent.ToolDetailHeading">工具详情</x:String>
+  <x:String x:Key="Agent.ToolName">名称</x:String>
+  <x:String x:Key="Agent.ToolDescription">描述</x:String>
+  <x:String x:Key="Agent.ToolCommandLabel">命令</x:String>
+  <x:String x:Key="Agent.ToolCommandLine">命令：{0} {1}</x:String>
+  <x:String x:Key="Agent.ToolArguments">参数模板</x:String>
+  <x:String x:Key="Agent.ToolArgumentsHint">支持使用 {prompt}、{message}、{imagePath} 等占位符。</x:String>
+  <x:String x:Key="Agent.ToolTimeoutLabel">超时时间（秒）</x:String>
+  <x:String x:Key="Agent.ToolAutoRun">每次请求自动运行</x:String>
+  <x:String x:Key="Agent.Reset">重置</x:String>
+  <x:String x:Key="Agent.Save">保存</x:String>
+  <x:String x:Key="Agent.Close">关闭</x:String>
+  <x:String x:Key="Agent.ConfigHint">在独立窗口中配置智能体、工具与提示词。</x:String>
+  <x:String x:Key="Agent.OpenSettings">打开智能体设置</x:String>
+  <x:String x:Key="Agent.ToolHeading">工具：{0}</x:String>
+  <x:String x:Key="Agent.ToolExitCode">退出码：{0}</x:String>
+  <x:String x:Key="Agent.ToolOutputHeading">标准输出</x:String>
+  <x:String x:Key="Agent.ToolErrorHeading">标准错误</x:String>
+  <x:String x:Key="Agent.ToolTimeoutNotice">执行超时（{0} 秒）</x:String>
+  <x:String x:Key="Agent.ToolDefaultName">新工具</x:String>
+  <x:String x:Key="Agent.ToolDefaultDescription">请简单说明该工具的用途。</x:String>
+  <x:String x:Key="Agent.ToolsEmptyHint">尚未配置工具，可将脚本或命令整合进来。</x:String>
 </ResourceDictionary>

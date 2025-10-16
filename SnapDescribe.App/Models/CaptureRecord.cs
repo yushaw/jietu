@@ -8,6 +8,15 @@ namespace SnapDescribe.App.Models;
 
 public partial class CaptureRecord : ObservableObject
 {
+    public CaptureRecord()
+    {
+        OcrSegments.CollectionChanged += (_, _) =>
+        {
+            OnPropertyChanged(nameof(HasOcrResults));
+            OnPropertyChanged(nameof(NoOcrResults));
+        };
+    }
+
     public required string Id { get; init; }
 
     public required string ImagePath { get; init; }
@@ -37,9 +46,27 @@ public partial class CaptureRecord : ObservableObject
 
     public byte[] ImageBytes { get; set; } = Array.Empty<byte>();
 
+    public ObservableCollection<OcrSegment> OcrSegments { get; } = new();
+
+    [ObservableProperty]
+    private string? ocrLanguages;
+
     public string DisplayTitle => $"{CapturedAt:HH:mm:ss} - {System.IO.Path.GetFileNameWithoutExtension(ImagePath)}";
 
-    public bool SupportsChat => string.Equals(CapabilityId, CapabilityIds.LanguageModel, StringComparison.OrdinalIgnoreCase);
+    public bool SupportsChat => string.Equals(CapabilityId, CapabilityIds.LanguageModel, StringComparison.OrdinalIgnoreCase)
+        || string.Equals(CapabilityId, CapabilityIds.Agent, StringComparison.OrdinalIgnoreCase);
+
+    public bool SupportsOcr => string.Equals(CapabilityId, CapabilityIds.Ocr, StringComparison.OrdinalIgnoreCase);
+
+    public bool HasOcrResults => SupportsOcr && !string.IsNullOrWhiteSpace(ResponseMarkdown);
+
+    public bool NoOcrResults => SupportsOcr && !HasOcrResults;
+
+    public bool HasOcrLanguages => !string.IsNullOrWhiteSpace(OcrLanguages);
+
+    public bool ShowPromptDetails => !SupportsOcr;
+
+    public bool ShowOcrDetails => SupportsOcr;
 
     public string DisplayContext
     {
@@ -68,4 +95,18 @@ public partial class CaptureRecord : ObservableObject
     }
 
     public void RefreshDisplayContext() => OnPropertyChanged(nameof(DisplayContext));
+
+    partial void OnOcrLanguagesChanged(string? value)
+    {
+        OnPropertyChanged(nameof(HasOcrLanguages));
+    }
+
+    partial void OnResponseMarkdownChanged(string value)
+    {
+        if (SupportsOcr)
+        {
+            OnPropertyChanged(nameof(HasOcrResults));
+            OnPropertyChanged(nameof(NoOcrResults));
+        }
+    }
 }
