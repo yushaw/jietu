@@ -99,3 +99,25 @@ Keep this document up to date as the implementation evolves.
 - Map our internal services (`IAgent`, `IAgentContext`, `IAgentToolRunner`) to Autogen abstractions: a coordinator agent orchestrates specialized worker agents while snapshots remain deterministic for reproducibility.
 - Start with deterministic tool execution for local CLI commands; MCP adapters and remote tools will register through the same Autogen-compatible interfaces when introduced.
 - Keep the loop deterministic: resolve capability → prepare agent group → execute configured tools → feed transcripts to GLM for the final response.
+
+## Python Sidecar Expansion (Gated Preview)
+
+To unlock LangGraph-level agent capabilities without rewriting the Avalonia client:
+
+- **Architecture**: Keep SnapDescribe as the orchestration host (capture, OCR, logging, tool execution). Introduce a detachable Python sidecar that runs LangGraph workflows and issues declarative actions back to the host. The sidecar never spawns shell commands directly—the host continues to enforce tool white-lists and timeouts.
+- **Communication**: A local RPC channel (HTTP loopback or named pipe) exchanges `StartRun`, `AgentEvent`, `ToolResult`, and `CancelRun` payloads. Each payload carries `runId`/`recordId` for deterministic replay. Cancellation flows from the UI through the host into the sidecar.
+- **Packaging & Delivery**: Package the sidecar as an embedded CPython runtime plus minimal LangGraph dependencies (~70 MB unpacked). Publish `snapdescribe-sidecar-win64.zip` and a manifest JSON with version + SHA256 on every GitHub Release. The base installer stays slim.
+- **On-Demand Install**: The Agent Settings tab will detect the sidecar state, prompt users to download/update, verify hashes, then extract to `%LOCALAPPDATA%\SnapDescribe\sidecar\python\<version>\`. Power users can point to a custom path for development builds.
+- **Lifecycle**: `AgentExecutionService` becomes an RPC client that streams conversation context to the sidecar and relays tool callbacks through existing `ShellAgentToolRunner`. `App.axaml.cs` owns process startup/shutdown, and `DiagnosticLogger` records install/upgrade events.
+- **Testing**: Python sidecar ships with pytest coverage (graph lifecycle, tool callback serialization, cancellation). .NET tests mock the RPC layer to verify UI/state handling. CI publishes both the main installer and the optional sidecar artifact.
+- **Global reuse**: The sidecar is packaged as a shared Windows module with a documented RPC schema. Future desktop or service apps can authenticate and reuse the same runtime so the broader ecosystem benefits from a single agent capability surface.
+
+The full checklist lives in `docs/PythonSidecarDesign.md`. Use it when planning tasks for the dedicated agent to implement this preview feature.
+
+### Local Agent & Workflow Roadmap
+
+- 丰富本地生态：SnapDescribe 将持续引入大量本地工具、资源索引和内部接口。Agent 配置需要允许用户把这些能力作为 LangGraph 工具即时挂载或卸载。
+- 多 Agent 管理：用户可在 UI 中创建/克隆多个本地 Agent Profile，并可在运行时将 Agent 之间互相嵌套调用或共享工具链。
+- 动态扩展：运行过程中允许用户追加新的工具或切换至不同 Agent，而无需重启 sidecar；配置变更要可审计并可回滚。
+- Workflow 规划：在框架稳定后，会基于 LangGraph 的图结构提供可视化 Workflow 设计器，支持串行/并行步骤、条件分支、人工确认节点等高级编排。
+- 上述规划须继续遵守本章的 determinism、可观测性、安全约束，并在实现前更新设计文档。
