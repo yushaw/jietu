@@ -61,7 +61,7 @@ makensis -DSourceDir=$(pwd)/SnapDescribe.App/bin/Release/net8.0/win-x64/publish 
   installer/SnapDescribeInstaller.nsi
 ```
 
-发布目录内会生成 `SnapDescribe.exe`、`tessdata/` 语言包以及完整安装包 `SnapDescribeSetup.exe`。GitHub Actions 同样会在推送 `v*` 标签后自动构建压缩包与 NSIS 安装器并发布到 Release。
+发布目录内会生成 `SnapDescribe.exe`、`tessdata/` 语言包以及完整安装包 `SnapDescribeSetup.exe`。推送 `v*` 标签后，GitHub Actions 会自动构建 NSIS 安装器并将 `SnapDescribeSetup.exe` 发布到 Release。
 
 后续版本将补充自动更新通道，确保应用能在系统内直接检测并安装新版本。
 

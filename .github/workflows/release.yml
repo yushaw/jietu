@@ -38,17 +38,11 @@ jobs:
       - name: Build installer
         run: |
           makensis -DSourceDir=$(pwd)/SnapDescribe.App/bin/Release/net8.0/win-x64/publish -DAppIcon=$(pwd)/SnapDescribe.App/Assets/AppIcon.ico -DInstallVersion=${{ env.APP_VERSION }} installer/SnapDescribeInstaller.nsi
-          mv installer/SnapDescribeSetup.exe SnapDescribe.App/bin/Release/net8.0/win-x64/publish/
-
-      - name: Package artifacts
-        run: |
-          cd SnapDescribe.App/bin/Release/net8.0/win-x64/publish
-          zip -r SnapDescribe-win-x64.zip *
-          mv SnapDescribe-win-x64.zip ../../../../../../
+          mv installer/SnapDescribeSetup.exe SnapDescribeSetup.exe
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: SnapDescribe-win-x64.zip
+          files: SnapDescribeSetup.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
