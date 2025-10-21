@@ -37,23 +37,7 @@ Section "Install"
   Sleep 300
 
   SetOutPath "$INSTDIR"
-  File "${SourceDir}/SnapDescribe.exe"
-
-  ; optional debugging symbols
-  IfFileExists "${SourceDir}/SnapDescribe.pdb" 0 +2
-    File "${SourceDir}/SnapDescribe.pdb"
-
-  SetOutPath "$INSTDIR\tessdata"
-  File "${SourceDir}/tessdata/eng.traineddata"
-  File "${SourceDir}/tessdata/chi_sim.traineddata"
-
-  IfFileExists "${SourceDir}/x64/*.*" 0 +3
-    SetOutPath "$INSTDIR\x64"
-    File /r "${SourceDir}/x64/*"
-
-  IfFileExists "${SourceDir}/x86/*.*" 0 +3
-    SetOutPath "$INSTDIR\x86"
-    File /r "${SourceDir}/x86/*"
+  File /r "${SourceDir}/*.*"
 
   SetOutPath "$INSTDIR"
   CreateShortcut "$DESKTOP\SnapDescribe.lnk" "$INSTDIR\SnapDescribe.exe"

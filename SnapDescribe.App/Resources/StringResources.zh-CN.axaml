@@ -31,6 +31,8 @@
   <x:String x:Key="Button.Remove">移除</x:String>
   <x:String x:Key="Button.CopySegment">复制</x:String>
   <x:String x:Key="Button.CopyAll">复制全部</x:String>
+  <x:String x:Key="Button.Copied">已复制</x:String>
+  <x:String x:Key="Button.CopiedMultiple">已复制 {0} 段</x:String>
 
   <!-- Labels -->
   <x:String x:Key="Label.CaptureHint">提示：单击高亮窗口即可截图，拖拽选择自定义区域，按 Esc 取消。</x:String>

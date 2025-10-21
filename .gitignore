@@ -18,6 +18,10 @@ publish/
 publish-out/
 SnapDescribeSetup.exe
 
+# Installer build artifacts
+installer/bin/
+installer/*.exe
+
 # Logs and diagnostics
 *.log
 

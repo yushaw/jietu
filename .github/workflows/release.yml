@@ -32,12 +32,21 @@ jobs:
       - name: Publish Windows x64 package
         run: dotnet publish SnapDescribe.App -c Release -r win-x64 --self-contained true /p:PublishSingleFile=true /p:InstallVersion=${{ env.APP_VERSION }}
 
+      - name: Prepare installer resources
+        run: |
+          mkdir -p installer/bin/tessdata
+          mkdir -p installer/bin/Assets
+          cp SnapDescribe.App/bin/Release/net8.0/win-x64/publish/SnapDescribe.exe installer/bin/
+          cp SnapDescribe.App/bin/Release/net8.0/win-x64/publish/SnapDescribe.pdb installer/bin/ || echo "PDB not found, skipping"
+          cp SnapDescribe.App/Assets/AppIcon.ico installer/bin/Assets/
+          cp SnapDescribe.App/bin/Release/net8.0/win-x64/publish/tessdata/*.traineddata installer/bin/tessdata/
+
       - name: Install makensis
         run: sudo apt-get update && sudo apt-get install -y nsis
 
       - name: Build installer
         run: |
-          makensis -DSourceDir=$(pwd)/SnapDescribe.App/bin/Release/net8.0/win-x64/publish -DAppIcon=$(pwd)/SnapDescribe.App/Assets/AppIcon.ico -DInstallVersion=${{ env.APP_VERSION }} installer/SnapDescribeInstaller.nsi
+          makensis -DSourceDir=$(pwd)/installer/bin -DAppIcon=$(pwd)/installer/bin/Assets/AppIcon.ico -DInstallVersion=${{ env.APP_VERSION }} installer/SnapDescribeInstaller.nsi
           mv installer/SnapDescribeSetup.exe SnapDescribeSetup.exe
 
       - name: Create GitHub Release

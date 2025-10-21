@@ -31,6 +31,8 @@
   <x:String x:Key="Button.Remove">Remove</x:String>
   <x:String x:Key="Button.CopySegment">Copy</x:String>
   <x:String x:Key="Button.CopyAll">Copy All</x:String>
+  <x:String x:Key="Button.Copied">Copied</x:String>
+  <x:String x:Key="Button.CopiedMultiple">Copied {0} segments</x:String>
 
   <!-- Labels -->
   <x:String x:Key="Label.CaptureHint">Hint: Click a highlighted window to capture, drag for a custom region, press Esc to cancel.</x:String>

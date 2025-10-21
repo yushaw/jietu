@@ -14,11 +14,11 @@ SnapDescribe 是一款基于 Avalonia 的桌面截图助手，可以在 Windows 
 
 ## 功能特点
 
-- **窗口/区域截图**：支持高亮窗口选择或手动框选，自动识别进程名与窗口标题。
+- **窗口/区域截图**：支持高亮窗口选择或手动框选，自动识别进程名与窗口标题。智能窗口置顶机制确保单窗口捕获时目标窗口不被遮挡（v1.0.3+）。
 - **多模态对话**：将 PNG 以 Base64 发送到智谱 GLM `chat/completions`，支持对话续聊与上下文记忆。
 - **Prompt 规则匹配**：按进程或窗口标题自动切换 Prompt（默认内置常见浏览器、PDF、IM、WPS 规则）。
 - **结果预览**：弹窗展示截图、元数据、对话记录，可直接继续追问或复制内容。
-- **本地 OCR**：在规则中选择 OCR 能力，调用 Tesseract 识别截图文本，支持多语言分段展示与复制。
+- **本地 OCR**：在规则中选择 OCR 能力，调用 Tesseract 识别截图文本，支持多语言分段展示与复制。使用 tessdata_best 高质量训练数据与 Default 引擎模式（v1.0.2+）。
 - **Autogen 智能体（预览）**：基于 Autogen 流程调度模型与外部工具，支持为特定规则配置多步骤处理（命令行工具→模型总结）。
 - **本地持久化**：截图、Markdown 会话与日志默认保存到用户目录，易于归档。
 - **全局热键与托盘**：默认 `Alt+T`，可自定义，同时支持托盘菜单快捷操作。
@@ -83,7 +83,7 @@ makensis -DSourceDir=$(pwd)/SnapDescribe.App/bin/Release/net8.0/win-x64/publish 
 ## 默认配置与数据位置
 
 - Prompt 规则与其他设置保存在 `%APPDATA%\SnapDescribe\settings.json`。首次启动会自动写入内置规则：常见 PDF 阅读器映射到 OCR Prompt，Chrome/Edge 使用网页总结，tuitui.exe 与 WeChat 给出聊天回复草案，WPS 表格/文档分别应用数据分析与润色 Prompt。
-- OCR 能力依赖本地 Tesseract。应用已内置 `eng` 与 `chi_sim` 语言包，默认即可使用；若需其他语言，可将对应的 `.traineddata` 文件放入 `tessdata` 目录（或在设置中指定自定义路径），并在规则参数里通过 `language` 键覆盖语言组合（例如 `eng+deu`）。
+- OCR 能力依赖本地 Tesseract。应用已内置 `eng` 与 `chi_sim` 高质量训练数据（tessdata_best），默认即可使用；若需其他语言，可将对应的 `.traineddata` 文件放入 `tessdata` 目录（或在设置中指定自定义路径），并在规则参数里通过 `language` 键覆盖语言组合（例如 `eng+deu`）。OCR 引擎使用 Default 模式（LSTM + Legacy），在速度与准确率间取得最佳平衡（v1.0.2+）。
 - 截图与 Markdown 对话默认位于 `我的图片/SnapDescribe`（可在设置中调整）。
 - 日志输出路径为 `%APPDATA%\SnapDescribe\logs\`。
 
@@ -111,6 +111,21 @@ SnapDescribe.sln         # 解决方案文件
 - `ScreenshotService` 使用 Win32 API（`user32.dll`）获取窗口与进程信息；如需跨平台支持，请根据平台替换实现。
 - `IAiClient` 是模型调用抽象层，当前实现使用 `GlmClient`；可在此基础上扩展自定义模型或第三方服务。
 - 结果弹窗（`ResultDialog`）与主界面共享 `CaptureRecord`，流程中注意 UI 线程访问，已有示例可参考。
+
+## 版本历史
+
+### v1.0.3 (2025-10-21)
+- 修复：单窗口捕获时智能窗口置顶机制，确保目标窗口不被其他窗口遮挡
+- 优化：增加窗口置顶延迟从 50ms 到 300ms，提升渲染稳定性
+- 优化：PrintWindow 失败时自动重新拍摄全屏并裁剪，支持高权限应用捕获
+
+### v1.0.2 (2025-10-16)
+- 升级：OCR 训练数据从 tessdata 升级到 tessdata_best（eng: 15MB, chi_sim: 12MB）
+- 升级：Tesseract 引擎模式从 LstmOnly 升级到 Default（LSTM + Legacy 混合）
+- 优化：提升 OCR 识别准确率，尤其是复杂文档场景
+
+### v1.0.1 (Earlier)
+- 初始版本功能实现
 
 ## 贡献
 

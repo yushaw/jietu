@@ -84,7 +84,7 @@ public class ScreenshotService : IScreenshotService
                 }
             }
 
-            var finalBitmap = capturedBitmap ?? CropFromFull(fullBitmap, selection.ScreenRect, virtualLeft, virtualTop);
+            var finalBitmap = capturedBitmap ?? CropFromFullWithBringToFront(fullBitmap, selection, virtualLeft, virtualTop);
 
             return CreateResult(finalBitmap, metadata.ProcessName, metadata.WindowTitle);
         }
@@ -363,6 +363,59 @@ public class ScreenshotService : IScreenshotService
         return crop;
     }
 
+    private static DrawingBitmap CropFromFullWithBringToFront(DrawingBitmap originalFullScreen, SelectionResult selection, int virtualLeft, int virtualTop)
+    {
+        // If this is a window selection with a valid handle, bring it to front and re-capture
+        if (selection.IsWindowSelection && selection.WindowHandle != IntPtr.Zero)
+        {
+            try
+            {
+                // Save current foreground window
+                var previousForeground = Native.GetForegroundWindow();
+
+                // Restore if minimized
+                if (Native.IsIconic(selection.WindowHandle))
+                {
+                    Native.ShowWindow(selection.WindowHandle, Native.SW_RESTORE);
+                }
+
+                // Bring target window to front
+                Native.SetForegroundWindow(selection.WindowHandle);
+
+                // Wait 300ms for window to fully render on top
+                Thread.Sleep(300);
+
+                // Re-capture full screen
+                var virtualWidth = Native.GetSystemMetrics(Native.SystemMetric.SM_CXVIRTUALSCREEN);
+                var virtualHeight = Native.GetSystemMetrics(Native.SystemMetric.SM_CYVIRTUALSCREEN);
+                using var newFullBitmap = new DrawingBitmap(virtualWidth, virtualHeight);
+                using (var graphics = DrawingGraphics.FromImage(newFullBitmap))
+                {
+                    graphics.CopyFromScreen(virtualLeft, virtualTop, 0, 0,
+                        new DrawingSize(virtualWidth, virtualHeight),
+                        DrawingCopyPixelOperation.SourceCopy);
+                }
+
+                // Restore previous foreground window
+                if (previousForeground != IntPtr.Zero && previousForeground != selection.WindowHandle)
+                {
+                    Native.SetForegroundWindow(previousForeground);
+                }
+
+                // Crop from the new full screenshot
+                return CropFromFull(newFullBitmap, selection.ScreenRect, virtualLeft, virtualTop);
+            }
+            catch (Exception ex)
+            {
+                DiagnosticLogger.Log("Bring-to-front re-capture failed, using original screenshot", ex);
+                // Fall back to cropping from original full screen
+            }
+        }
+
+        // If not a window selection, or if bring-to-front logic failed, use original full screen
+        return CropFromFull(originalFullScreen, selection.ScreenRect, virtualLeft, virtualTop);
+    }
+
     private static bool IsMostlyBlack(DrawingBitmap bitmap)
     {
         try
@@ -456,7 +509,7 @@ public class ScreenshotService : IScreenshotService
                 Native.AttachThreadInput(currentThread, windowThread, false);
             }
 
-            Thread.Sleep(50);
+            Thread.Sleep(300);
 
             var bitmap = new DrawingBitmap(width, height);
             using (var graphics = DrawingGraphics.FromImage(bitmap))

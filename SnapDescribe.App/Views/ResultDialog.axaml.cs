@@ -1,5 +1,6 @@
 using System;
 using System.ComponentModel;
+using System.Linq;
 using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Input;
@@ -31,7 +32,11 @@ public partial class ResultDialog : Window
         _supportsChat = continueChat is not null;
         DataContext = record;
 
-        PreviewImage.Source = record.Preview;
+        if (!record.SupportsOcr)
+        {
+            PreviewImage.Source = record.Preview;
+        }
+
         TitleText.Text = record.DisplayTitle;
         UpdateLocalizedTexts();
 
@@ -43,6 +48,13 @@ public partial class ResultDialog : Window
         else
         {
             ChatContainer.IsVisible = false;
+        }
+
+        if (record.SupportsOcr)
+        {
+            OcrCanvas.SegmentClicked += OnOcrSegmentClicked;
+            OcrCanvas.SelectionChanged += OnOcrSelectionChanged;
+            KeyDown += OnOcrDialogKeyDown;
         }
 
         Closed += OnClosed;
@@ -142,9 +154,85 @@ public partial class ResultDialog : Window
         if (_record is not null)
         {
             _record.PropertyChanged -= OnRecordPropertyChanged;
+
+            if (_record.SupportsOcr)
+            {
+                OcrCanvas.SegmentClicked -= OnOcrSegmentClicked;
+                OcrCanvas.SelectionChanged -= OnOcrSelectionChanged;
+                KeyDown -= OnOcrDialogKeyDown;
+            }
         }
 
         _localization.LanguageChanged -= LocalizationOnLanguageChanged;
+    }
+
+    private void OnOcrDialogKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (_record?.SupportsOcr != true) return;
+
+        if (e.Key == Key.A && e.KeyModifiers.HasFlag(KeyModifiers.Control))
+        {
+            e.Handled = true;
+            OcrCanvas.SelectAll();
+        }
+        else if (e.Key == Key.Escape)
+        {
+            e.Handled = true;
+            OcrCanvas.ClearSelection();
+        }
+    }
+
+    private async void OnOcrSegmentClicked(object? sender, OcrSegment segment)
+    {
+        // Single click: copy just this segment
+        await CopyTextAsync(segment.Text);
+        ShowCopyFeedback();
+    }
+
+    private async void OnOcrSelectionChanged(object? sender, System.Collections.Generic.IReadOnlyList<OcrSegment> segments)
+    {
+        // Multiple selection: copy all selected text
+        if (segments.Count == 0) return;
+
+        var combinedText = string.Join(Environment.NewLine, segments.Select(s => s.Text));
+        await CopyTextAsync(combinedText);
+        ShowCopyFeedback(segments.Count);
+    }
+
+    private void ShowCopyFeedback(int count = 1)
+    {
+        // Update copy button text temporarily as visual feedback
+        if (OcrActions is not null && OcrActions.Child is StackPanel stackPanel)
+        {
+            if (stackPanel.Children.Count > 0 && stackPanel.Children[0] is Button copyButton)
+            {
+                var originalText = copyButton.Content;
+                copyButton.Content = count > 1
+                    ? _localization.GetString("Button.CopiedMultiple", count)
+                    : _localization.GetString("Button.Copied");
+
+                var timer = new System.Timers.Timer(1500);
+                timer.Elapsed += (s, e) =>
+                {
+                    Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                    {
+                        copyButton.Content = originalText;
+                    });
+                    timer.Dispose();
+                };
+                timer.Start();
+            }
+        }
+    }
+
+    private void OnOcrSegmentItemClicked(object? sender, PointerPressedEventArgs e)
+    {
+        if (sender is not Border border || border.DataContext is not OcrSegment segment)
+        {
+            return;
+        }
+
+        OcrCanvas.HighlightSegment(segment);
     }
 
     private void UpdateLocalizedTexts()

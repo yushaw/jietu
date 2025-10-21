@@ -13,12 +13,14 @@ namespace SnapDescribe.App.Services;
 public sealed class TesseractOcrService : IOcrService
 {
     private readonly SettingsService _settingsService;
+    private readonly ImagePreprocessor _preprocessor;
     private static readonly object NativeInitLock = new();
     private static bool _nativeInitialized;
 
     public TesseractOcrService(SettingsService settingsService)
     {
         _settingsService = settingsService;
+        _preprocessor = new ImagePreprocessor();
         EnsureNativeInitialization();
     }
 
@@ -65,8 +67,17 @@ public sealed class TesseractOcrService : IOcrService
 
         try
         {
-            using var pix = Pix.LoadFromMemory(imageBytes);
-            using var engine = new TesseractEngine(dataPath, effectiveLanguages, EngineMode.LstmOnly);
+            // Preprocess image: grayscale
+            // Let Tesseract handle binarization with its internal algorithms
+            var preprocessedBytes = _preprocessor.PreprocessForOcr(imageBytes);
+
+            using var pix = Pix.LoadFromMemory(preprocessedBytes);
+
+            // Use Default mode for best quality:
+            // - Combines LSTM (neural network) and Legacy engines
+            // - LSTM provides accuracy, Legacy provides fallback
+            // - Slower but highest quality results
+            using var engine = new TesseractEngine(dataPath, effectiveLanguages, EngineMode.Default);
             using var page = engine.Process(pix);
 
             var segments = ExtractSegments(page, cancellationToken);
